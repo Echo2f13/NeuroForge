@@ -1,0 +1,6 @@
+azure-ai-inference
+azure-core
+groq
+python-dotenv
+requests
+
