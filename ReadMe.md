@@ -1,13 +1,13 @@
 # Flashcards & Quiz Generator (Prototype-1)
 
-## dYs? Overview
+## Overview
 This project is a **lightweight prototype** that extracts text from multiple formats (`.txt`, `.pdf`, `.ppt`), processes the corpus through an LLM (Ollama or API), and generates structured **XML files** containing quizzes and flashcards.  
 
 The generated XMLs are stored in a backend database and served to a **Streamlit frontend** for interactive visualization.
 
 ---
 
-## �sT�,? Tech Stack
+## Tech Stack
 - **Language:** Python  
 - **Frontend:** Streamlit (Prototype UI)  
 - **Backend:** Python services + Database  
@@ -16,7 +16,7 @@ The generated XMLs are stored in a backend database and served to a **Streamlit 
 
 ---
 
-## dY?-�,? Architecture
+## Architecture
 
 ```mermaid
 flowchart TD
