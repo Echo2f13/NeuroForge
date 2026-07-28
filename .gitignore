@@ -3,3 +3,15 @@
 /.venv
 
 /reference/.env
+.env
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# ChromaDB local data
+/chroma_db/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
