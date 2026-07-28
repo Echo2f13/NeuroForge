@@ -1,18 +1,27 @@
-# Flashcards & Quiz Generator (Prototype-1)
+# NeuroForge — Adaptive Learning Engine
 
 ## Overview
-This project is a **lightweight prototype** that extracts text from multiple formats (`.txt`, `.pdf`, `.ppt`), processes the corpus through an LLM (Ollama or API), and generates structured **XML files** containing quizzes and flashcards.  
 
-The generated XMLs are stored in a backend database and served to a **Streamlit frontend** for interactive visualization.
+NeuroForge is an intelligent learning platform that transforms raw study material into structured, personalized learning experiences. Upload any document — PDF, PPT, DOCX, images, YouTube links, or plain text — and NeuroForge builds a knowledge graph, then generates quizzes, flashcards, solutions, revision notes, mind maps, and more, all adapted to your learning progress.
 
 ---
 
-## Tech Stack
-- **Language:** Python  
-- **Frontend:** Streamlit (Prototype UI)  
-- **Backend:** Python services + Database  
-- **Database:** Any lightweight DB (SQLite/PostgreSQL) to store XMLs  
-- **LLM:** Ollama (local) or external API (OpenAI, etc.)  
+## Core Idea
+
+Process material **once** into a canonical knowledge base (concepts, summaries, metadata, embeddings, relationships). Every feature reads from that knowledge base — no redundant re-processing.
+
+---
+
+## Features
+
+- **Quiz Generation** — difficulty-aware, with explanations
+- **Flashcards** — with hints, mnemonics, and related topics
+- **Solutions** — depth scales with marks/weight
+- **Revision Notes** — concise, structured summaries
+- **Mind Maps** — visual concept relationships
+- **Additional Info** — applications, history, industry uses, interview questions
+- **Adaptive Learning** — tracks weak/strong topics, adjusts difficulty over time
+- **Chat Tutor** — conversational Q&A grounded in your material
 
 ---
 
@@ -20,47 +29,172 @@ The generated XMLs are stored in a backend database and served to a **Streamlit 
 
 ```mermaid
 flowchart TD
-    subgraph FE[Frontend - Streamlit Prototype]
-        A1["Upload Interface<br>(.txt / .pdf / .ppt)"]
-        A2["Quiz Viewer"]
-        A3["Flashcards Viewer"]
-    end
+    START([Start])
 
-    subgraph BE[Backend]
-        B1["Extract Metadata<br>(Corpus Only)"]
-        B2["Chunk Corpus"]
-        B3["Feed Chunks �+' LLM<br>(Ollama / API)"]
-        B4["Generate XML<br>(Q&A Schema)"]
-        B5["Database<br>(Store XMLs)"]
-    end
+    START --> Upload
 
-    subgraph LLM[Large Language Model]
-        C1["Ollama / API<br>(OpenAI, etc.)"]
-    end
+    Upload --> DetectFormat
 
-    %% Data Flow
-    A1 --> B1
-    B1 --> B2
-    B2 --> B3
-    B3 --> C1
-    C1 --> B4
-    B4 --> B5
-    B5 -->|Fetch XML| A2
-    B5 -->|Fetch XML| A3
+    DetectFormat --> PDF
+    DetectFormat --> PPT
+    DetectFormat --> DOCX
+    DetectFormat --> OCR
+    DetectFormat --> YouTube
+    DetectFormat --> Text
+
+    PDF --> Normalize
+    PPT --> Normalize
+    DOCX --> Normalize
+    OCR --> Normalize
+    YouTube --> Normalize
+    Text --> Normalize
+
+    Normalize --> KnowledgeExtraction
+
+    KnowledgeExtraction --> VectorDB
+    KnowledgeExtraction --> GraphDB
+    KnowledgeExtraction --> Metadata
+
+    VectorDB --> Planner
+    GraphDB --> Planner
+    Metadata --> Planner
+
+    Planner --> Quiz
+    Planner --> Flashcards
+    Planner --> Solutions
+    Planner --> RevisionNotes
+    Planner --> AdditionalInfo
+    Planner --> MindMap
+    Planner --> ChatTutor
+
+    Quiz --> Reviewer
+    Flashcards --> Reviewer
+    Solutions --> Reviewer
+    RevisionNotes --> Reviewer
+    AdditionalInfo --> Reviewer
+    MindMap --> Reviewer
+    ChatTutor --> Reviewer
+
+    Reviewer --> UpdateMemory
+
+    UpdateMemory --> END([End])
 ```
 
-## Prototype-1: Reference Folder
+---
 
-The `reference/` directory is strictly a developer sandbox that showcases experimental scripts for working with different APIs before they are integrated into the production-ready prototype. Explore the files inside to understand how we authenticate, send requests, and process responses when exercising external services.
+## Pipeline Phases
 
-**Currently demonstrated APIs and helpers**
-- OpenRouter chat completions via direct `requests` calls.
-- Groq LLM interactions using the official `groq` client.
-- GitHub Models (Azure AI Inference) chat completions with `azure-ai-inference` and `azure-core`.
+### Phase 1 — Input Layer
 
-**Reference-specific dependencies**
-The scripts rely on libraries tracked in `reference/requirements.txt`, including `azure-ai-inference`, `azure-core`, `groq`, `python-dotenv`, and `requests`. Install them only if you plan to experiment inside the reference workspace.
+| Input | Loader |
+|-------|--------|
+| PDF | PyMuPDF / pdfplumber |
+| PPT/PPTX | python-pptx |
+| DOCX | python-docx |
+| Images | OCR (PaddleOCR / GPT Vision) |
+| YouTube | Transcript API / Whisper |
+| Plain Text | Direct |
+| Lecture Notes | Markdown/Text parser |
 
-> The reference folder is disconnected from the Prototype-1 runtime—removing or modifying these helpers will not impact the Streamlit app.
+### Phase 2 — Document Understanding
 
-> Prototype-2 will be implemented in Flutter for mobile usage.
+Raw Document → Extract Text → Clean & Remove Garbage → Normalize
+
+### Phase 3 — Knowledge Extraction
+
+Extracts: Topics, Subtopics, Definitions, Formulae, Examples, Important Dates, People, Concept Relationships, Difficulty Levels, Prerequisites.
+
+### Phase 4 — Knowledge Store
+
+Multiple representations stored — not just embeddings:
+
+```
+Document → Chunks → Embeddings → Knowledge Graph → Metadata → Summary → Keywords
+```
+
+Example metadata:
+
+```json
+{
+  "chapter": "Sorting",
+  "difficulty": "Medium",
+  "estimated_time": "15 mins",
+  "concepts": ["Merge Sort", "Quick Sort", "Heap Sort"]
+}
+```
+
+### Phase 5 — Planner (LangGraph)
+
+Routes user intent to the appropriate specialized workflow (Quiz, Flashcards, Notes, Explain, Compare, Roadmap).
+
+### Phase 6 — Specialized Workflows
+
+Each output type has its own generation graph (retrieve → generate → review).
+
+### Phase 7 — User Learning Memory
+
+Tracks quiz scores, weak/strong topics, mastery levels. Adapts future content generation accordingly.
+
+---
+
+## Multi-Agent Design
+
+| Agent | Role |
+|-------|------|
+| Planner Agent | Decides what workflow to trigger |
+| Document Agent | Extracts and structures knowledge |
+| Teacher Agent | Explains concepts |
+| Examiner Agent | Creates quizzes and assessments |
+| Reviewer Agent | Checks output quality |
+| Memory Agent | Updates user learning progress |
+
+---
+
+## Technology Stack
+
+| Layer | Tools |
+|-------|-------|
+| UI | React / Next.js |
+| Backend API | FastAPI |
+| Workflow | LangGraph |
+| LLM Components | LangChain |
+| Observability | LangSmith |
+| OCR | PaddleOCR / GPT Vision |
+| Embeddings | OpenAI / Voyage AI / BAAI BGE |
+| Vector DB | Chroma (dev), Qdrant or Pinecone (prod) |
+| Knowledge Graph | Neo4j (optional) |
+| Database | PostgreSQL |
+| Storage | S3 / Supabase Storage / Local |
+| Background Jobs | Celery / FastAPI Background Tasks |
+
+---
+
+## Project Status
+
+- **Prototype-1**: Python backend + Streamlit UI (current phase)
+- **Prototype-2**: Flutter mobile app (planned)
+
+---
+
+## Getting Started
+
+```bash
+# Clone and enter
+cd NeuroForge
+
+# Create virtual environment
+python -m venv .venv
+.venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run
+python main.py
+```
+
+---
+
+## License
+
+MIT
