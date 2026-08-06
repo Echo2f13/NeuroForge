@@ -184,13 +184,107 @@ cd NeuroForge
 
 # Create virtual environment
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate   # On Windows
+# source .venv/bin/activate  # On Linux/Mac
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Run
-python main.py
+# Run the API server
+uvicorn main:app --reload
+```
+
+The API will be available at `http://localhost:8000`. Interactive documentation at `http://localhost:8000/docs`.
+
+---
+
+## API Endpoints
+
+### Core Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | API info |
+| `/health` | GET | Health check |
+| `/stats` | GET | Knowledge base & learning stats |
+| `/process` | POST | Multi-agent orchestrator (auto-routes queries) |
+
+### Document Ingestion
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/upload` | POST | Upload document (PDF, PPTX, DOCX, images) |
+| `/upload/youtube` | POST | Process YouTube video transcript |
+
+### Content Generation
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/quiz` | POST | Generate quiz questions |
+| `/flashcards` | POST | Generate flashcards |
+| `/notes` | POST | Generate revision notes |
+| `/solution` | POST | Generate structured solution |
+| `/mindmap` | POST | Generate mind map |
+| `/additional-info` | POST | Generate applications, interview Q's, etc. |
+
+### Chat Tutor
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/chat` | POST | Chat with AI tutor |
+| `/chat/{session_id}` | DELETE | Reset chat session |
+
+### Learning Progress
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/progress` | GET | Overall learning progress |
+| `/progress/{topic}` | GET | Topic-specific progress |
+| `/progress/score` | POST | Record quiz score |
+
+### Spaced Repetition
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/spaced-repetition/due` | GET | Get due flashcards |
+| `/spaced-repetition/review` | POST | Submit card review |
+| `/spaced-repetition/card/{id}` | GET | Get card stats |
+
+### Search
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/search` | GET | Search knowledge base (semantic/hybrid) |
+
+---
+
+## Quick API Examples
+
+### Generate a Quiz
+```bash
+curl -X POST http://localhost:8000/quiz \
+  -H "Content-Type: application/json" \
+  -d '{"topic": "Python basics", "num_questions": 5}'
+```
+
+### Chat with Tutor
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Explain recursion"}'
+```
+
+### Upload a Document
+```bash
+curl -X POST http://localhost:8000/upload \
+  -F "file=@my_notes.pdf"
+```
+
+### Use Multi-Agent Orchestrator
+```bash
+curl -X POST http://localhost:8000/process \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Create flashcards about machine learning"}'
 ```
 
 ---

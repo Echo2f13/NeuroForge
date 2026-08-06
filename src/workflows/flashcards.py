@@ -4,6 +4,8 @@ Implements a sequential pipeline (retrieve → generate → format) that produce
 concise Q/A flashcards from retrieved knowledge concepts. Uses the Retriever
 for context gathering and LLMClient for generation with structured output.
 
+Enhanced with expert-level prompts for maximum quality output.
+
 Pipeline steps:
 1. Retrieve: Query the knowledge base for relevant concepts
 2. Generate: Use LLM to produce concise flashcard Q/A pairs
@@ -23,6 +25,7 @@ from models.knowledge import Difficulty
 from models.output import Flashcard
 from src.llm import LLMClient
 from src.retrieval import Retriever
+from src.prompts.enhanced import FLASHCARD_SYSTEM_PROMPT, FLASHCARD_USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger("neuroforge.workflows.flashcards")
 
@@ -54,35 +57,11 @@ class _FlashcardBatch(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Flashcard prompt
+# Prompts - Now using enhanced prompts from prompts module
 # ---------------------------------------------------------------------------
 
-FLASHCARD_SYSTEM_PROMPT = """You are an expert study assistant creating flashcards for students.
-
-Rules for generating flashcards:
-1. Each answer MUST be concise: 1-10 words maximum.
-2. Questions should test understanding of a single concept.
-3. Include a hint for medium and hard difficulty cards.
-4. Include a mnemonic device where it helps memorization.
-5. Link related topics that connect to this concept.
-6. Vary question types: definitions, comparisons, applications, causes/effects.
-"""
-
-FLASHCARD_USER_PROMPT_TEMPLATE = """Generate {num_cards} flashcards about "{topic}" using the following source material.
-
-{difficulty_instruction}
-
-Source material:
-{context}
-
-Requirements:
-- Answers must be 1-10 words (concise!)
-- Include hints for harder cards
-- Include mnemonics where helpful (acronyms, rhymes, associations)
-- List related topics for each card
-- Assign difficulty (easy, medium, hard) to each card
-
-Respond with valid JSON only."""
+# Keep for reference but use enhanced versions
+_FLASHCARD_SYSTEM_PROMPT_LEGACY = """You are an expert study assistant creating flashcards for students."""
 
 
 # ---------------------------------------------------------------------------
@@ -182,17 +161,7 @@ class FlashcardWorkflow:
     ) -> list[_FlashcardItem]:
         """Step 2: Generate flashcards using the LLM.
 
-        Builds a prompt from the retrieved context and uses structured
-        JSON output to get flashcard data from the LLM.
-
-        Args:
-            topic: The topic for flashcard generation.
-            difficulty: Optional difficulty constraint.
-            num_cards: Number of cards to generate.
-            chunks: Retrieved context chunks.
-
-        Returns:
-            List of raw flashcard items from LLM.
+        Uses enhanced prompts for maximum quality output.
         """
         # Build context from chunks
         context = self._build_context(chunks)
@@ -200,14 +169,14 @@ class FlashcardWorkflow:
         # Build difficulty instruction
         if difficulty:
             difficulty_instruction = (
-                f"All cards should be at '{difficulty}' difficulty level."
+                f"All cards should be at '{difficulty.upper()}' difficulty level."
             )
         else:
             difficulty_instruction = (
-                "Mix difficulty levels: include easy, medium, and hard cards."
+                "Mix difficulty levels: include 30% easy, 50% medium, and 20% hard cards."
             )
 
-        # Format the user prompt
+        # Format the enhanced user prompt
         user_prompt = FLASHCARD_USER_PROMPT_TEMPLATE.format(
             num_cards=num_cards,
             topic=topic,
@@ -215,12 +184,13 @@ class FlashcardWorkflow:
             context=context,
         )
 
-        # Call LLM with structured output
+        # Call LLM with structured output and enhanced system prompt
         batch, usage = self.llm_client.generate_json(
             prompt=user_prompt,
             response_model=_FlashcardBatch,
             system_prompt=FLASHCARD_SYSTEM_PROMPT,
-            temperature=0.7,
+            temperature=0.6,  # Slightly lower for consistent quality
+            max_tokens=3072,  # More tokens for better mnemonics
         )
 
         logger.debug(f"LLM usage: {usage}")

@@ -6,6 +6,8 @@ structured answers with depth scaled by mark allocation:
 - 5-mark: Moderate detail with key points
 - 10-mark: Detailed answer with marking scheme, examples, diagram hints
 
+Enhanced with expert-level prompts for maximum quality output.
+
 Uses the Retriever for context and LLMClient for generation.
 """
 
@@ -17,6 +19,10 @@ from typing import Any, Optional
 from models.output import Solution
 from src.llm import LLMClient, LLMProvider
 from src.retrieval.retriever import Retriever
+from src.prompts.enhanced import (
+    SOLUTION_SYSTEM_PROMPT,
+    SOLUTION_USER_PROMPT_TEMPLATE,
+)
 
 logger = logging.getLogger("neuroforge.workflows.solutions")
 
@@ -182,6 +188,8 @@ class SolutionWorkflow:
     ) -> tuple[Solution, dict[str, Any]]:
         """Generate a solution using the LLM.
 
+        Uses enhanced prompts for maximum quality output.
+
         Args:
             question: The question to answer.
             topic: The topic area.
@@ -192,16 +200,29 @@ class SolutionWorkflow:
         Returns:
             Tuple of (Solution instance, usage info).
         """
-        prompt = _build_solution_prompt(question, topic, marks, context)
+        # Get depth category and build depth instruction
+        depth_category = _get_depth_category(marks)
+        depth_instruction = DEPTH_PROMPTS[depth_category]
+        
+        # Build depth detail for the template
+        if depth_category == "brief":
+            depth_detail = "provide a focused 2-3 sentence answer"
+        elif depth_category == "moderate":
+            depth_detail = "provide 1-2 structured paragraphs with key points"
+        else:
+            depth_detail = "provide comprehensive coverage with examples, diagrams hints, and thorough explanation"
 
-        system_prompt = (
-            "You are a precise exam-answer generator. "
-            "Produce JSON matching the exact schema requested. "
-            "Scale answer depth to the marks allocated."
+        # Build the enhanced user prompt
+        prompt = SOLUTION_USER_PROMPT_TEMPLATE.format(
+            question=question,
+            topic=topic,
+            marks=marks,
+            depth_instruction=depth_instruction,
+            context=context if context else "No specific context available — use general knowledge.",
+            depth_detail=depth_detail,
         )
 
         # Scale max tokens based on marks
-        depth_category = _get_depth_category(marks)
         if depth_category == "brief":
             max_tokens = 512
         elif depth_category == "moderate":
@@ -212,9 +233,9 @@ class SolutionWorkflow:
         solution, usage = self.llm_client.generate_json(
             prompt=prompt,
             response_model=Solution,
-            system_prompt=system_prompt,
+            system_prompt=SOLUTION_SYSTEM_PROMPT,
             provider=provider,
-            temperature=0.5,
+            temperature=0.5,  # Consistent, accurate answers
             max_tokens=max_tokens,
         )
 

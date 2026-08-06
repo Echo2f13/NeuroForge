@@ -4,6 +4,8 @@ Implements a sequential pipeline (retrieve → generate → format) that produce
 hierarchical revision notes for a given topic. Uses the Retriever to fetch
 relevant content chunks and the LLMClient to generate structured notes
 validated against Pydantic models.
+
+Enhanced with expert-level prompts for maximum quality output.
 """
 
 from __future__ import annotations
@@ -14,49 +16,12 @@ from typing import Optional
 from models.output import RevisionNote, SubtopicNote
 from src.llm import LLMClient, LLMProvider
 from src.retrieval import Retriever
+from src.prompts.enhanced import (
+    REVISION_NOTES_SYSTEM_PROMPT,
+    REVISION_NOTES_USER_PROMPT_TEMPLATE,
+)
 
 logger = logging.getLogger("neuroforge.workflows.revision_notes")
-
-
-# ---------------------------------------------------------------------------
-# Prompt Template
-# ---------------------------------------------------------------------------
-
-REVISION_NOTES_SYSTEM_PROMPT = """\
-You are an expert study assistant that creates comprehensive, hierarchical \
-revision notes. Your notes should be well-organized, concise, and optimized \
-for exam preparation and quick review.
-
-Guidelines:
-- Organize content as topic → subtopics → bullet points
-- Highlight key terms and their definitions
-- Include relevant formulae with clear notation
-- Provide mnemonics or memory aids where helpful
-- Assign importance levels (high/medium/low) to each subtopic
-- Keep bullet points concise but informative
-- Focus on exam-relevant content
-"""
-
-REVISION_NOTES_USER_PROMPT = """\
-Create detailed hierarchical revision notes for the topic: "{topic}"
-
-Use the following source material to inform your notes:
-
----
-{context}
----
-
-Generate revision notes with:
-1. Multiple subtopics, each with:
-   - A clear title
-   - Concise bullet points covering key information
-   - An importance level (high, medium, or low)
-2. A list of key terms with brief definitions
-3. Relevant formulae (use plain text notation)
-4. Helpful mnemonics or memory aids
-
-Respond with valid JSON only.
-"""
 
 
 # ---------------------------------------------------------------------------
@@ -162,6 +127,8 @@ class RevisionNotesWorkflow:
     def _generate_notes(self, topic: str, context: str) -> RevisionNote:
         """Generate revision notes using the LLM client.
 
+        Uses enhanced prompts for maximum quality output.
+
         Args:
             topic: The topic name.
             context: Retrieved context text.
@@ -169,7 +136,8 @@ class RevisionNotesWorkflow:
         Returns:
             Validated RevisionNote instance.
         """
-        user_prompt = REVISION_NOTES_USER_PROMPT.format(
+        # Build the enhanced user prompt
+        user_prompt = REVISION_NOTES_USER_PROMPT_TEMPLATE.format(
             topic=topic, context=context
         )
 
@@ -178,8 +146,8 @@ class RevisionNotesWorkflow:
             response_model=RevisionNote,
             system_prompt=REVISION_NOTES_SYSTEM_PROMPT,
             provider=self.provider,
-            temperature=0.5,
-            max_tokens=4096,
+            temperature=0.5,  # Consistent quality
+            max_tokens=4096,  # Room for detailed notes
         )
 
         logger.info(

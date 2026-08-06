@@ -1,9 +1,10 @@
 """NeuroForge — Unified LLM Client.
 
-Provides a single interface to three free-tier LLM providers:
-- Groq (Llama 4 Scout 17B) — primary, fast
-- OpenRouter (Mistral Small 3.2 24B free) — fallback/overflow
-- GitHub Models (GPT-4.1-nano) — lightweight tasks
+Provides a single interface to two free-tier LLM providers:
+- Groq (Llama 3.3 70B Versatile) — primary, fast
+- OpenRouter (NVIDIA Nemotron 3 Super 120B free) — fallback
+
+Note: GitHub Models was retired on July 30, 2026.
 
 Features:
 - Provider fallback chain on rate-limit (429) errors
@@ -43,7 +44,6 @@ class LLMProvider(str, Enum):
 
     GROQ = "groq"
     OPENROUTER = "openrouter"
-    GITHUB = "github"
 
 
 class LLMConfig(BaseModel):
@@ -63,39 +63,30 @@ class LLMConfig(BaseModel):
 DEFAULT_CONFIGS: dict[LLMProvider, LLMConfig] = {
     LLMProvider.GROQ: LLMConfig(
         provider=LLMProvider.GROQ,
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        model="llama-3.3-70b-versatile",
         temperature=0.7,
         max_tokens=2048,
         api_key_env="GROQ_API_KEY",
     ),
     LLMProvider.OPENROUTER: LLMConfig(
         provider=LLMProvider.OPENROUTER,
-        model="mistralai/mistral-small-3.2-24b-instruct:free",
+        model="nvidia/nemotron-3-super-120b-a12b:free",
         temperature=0.7,
         max_tokens=2048,
         api_key_env="OPENROUTER_API_KEY",
     ),
-    LLMProvider.GITHUB: LLMConfig(
-        provider=LLMProvider.GITHUB,
-        model="openai/gpt-4.1-nano",
-        temperature=0.7,
-        max_tokens=2048,
-        api_key_env="GITHUB_TOKEN",
-    ),
 }
 
-# Provider fallback order: Groq → OpenRouter → GitHub
+# Provider fallback order: Groq → OpenRouter
 FALLBACK_CHAIN: list[LLMProvider] = [
     LLMProvider.GROQ,
     LLMProvider.OPENROUTER,
-    LLMProvider.GITHUB,
 ]
 
 # Base URLs for each provider
 PROVIDER_BASE_URLS: dict[LLMProvider, str] = {
     LLMProvider.GROQ: "https://api.groq.com/openai/v1",
     LLMProvider.OPENROUTER: "https://openrouter.ai/api/v1",
-    LLMProvider.GITHUB: "https://models.github.ai/inference",
 }
 
 # Max retries per provider before falling back

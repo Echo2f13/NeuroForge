@@ -12,6 +12,27 @@ __pycache__/
 
 # ChromaDB local data
 /chroma_db/
+/test_chroma_db/
 
 # Jupyter checkpoints
 .ipynb_checkpoints/
+
+# Kiro IDE folder
+.kiro/
+
+# VS Code
+.vscode/
+
+# State files (generated at runtime)
+knowledge_graph.json
+learning_state.json
+sr_state.json
+
+# Test files (temporary)
+quick_test.py
+summary_test.py
+test_all_features.py
+test_features.py
+
+# Uploaded documents (user data)
+*.pdf

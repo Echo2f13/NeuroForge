@@ -6,6 +6,8 @@ Implements a RAG-powered conversational tutor:
 - Cites source chunk IDs in answers
 - Handles follow-up questions using conversation context
 - Handles out-of-scope questions gracefully
+
+Enhanced with expert-level prompts for maximum quality output.
 """
 
 from __future__ import annotations
@@ -15,6 +17,10 @@ from typing import Any
 
 from src.llm import LLMClient
 from src.retrieval.retriever import Retriever
+from src.prompts.enhanced import (
+    CHAT_TUTOR_SYSTEM_PROMPT,
+    CHAT_TUTOR_USER_PROMPT_TEMPLATE,
+)
 
 logger = logging.getLogger("neuroforge.workflows.chat_tutor")
 
@@ -121,6 +127,8 @@ class ChatTutor:
     ) -> tuple[str, bool]:
         """Stage 2: Generate an answer grounded in retrieved chunks.
 
+        Uses enhanced prompts for maximum quality output.
+
         Args:
             question: The user's question.
             chunks: Retrieved chunks to ground the answer in.
@@ -128,15 +136,25 @@ class ChatTutor:
         Returns:
             Tuple of (answer_text, is_grounded).
         """
-        system_prompt = self._build_system_prompt()
-        user_prompt = self._build_user_prompt(question, chunks)
+        # Build history section for the enhanced prompt
+        history_section = self._build_history_section()
+        
+        # Build source section from chunks
+        source_section = self._build_source_section(chunks)
+        
+        # Build the enhanced user prompt
+        user_prompt = CHAT_TUTOR_USER_PROMPT_TEMPLATE.format(
+            history_section=history_section,
+            source_section=source_section,
+            question=question,
+        )
 
         try:
             response_text, _usage = self.llm_client.generate(
                 prompt=user_prompt,
-                system_prompt=system_prompt,
-                temperature=0.4,
-                max_tokens=1024,
+                system_prompt=CHAT_TUTOR_SYSTEM_PROMPT,
+                temperature=0.4,  # Focused, accurate responses
+                max_tokens=2048,  # Increased for comprehensive answers
             )
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
@@ -167,67 +185,35 @@ class ChatTutor:
             self._history = self._history[-max_messages:]
 
     # ------------------------------------------------------------------
-    # Prompt Construction
+    # Prompt Construction (Enhanced)
     # ------------------------------------------------------------------
 
-    def _build_system_prompt(self) -> str:
-        """Build the system prompt for the tutor persona."""
-        return (
-            "You are a knowledgeable and friendly tutor. Your role is to help "
-            "students understand topics from their study materials.\n\n"
-            "Rules:\n"
-            "1. ONLY answer based on the provided source material. If the "
-            "material doesn't cover the topic, say so clearly.\n"
-            "2. Cite your sources using [Source: chunk_id] format at the end "
-            "of relevant statements.\n"
-            "3. Be conversational and acknowledge previous context from the "
-            "conversation history.\n"
-            "4. For follow-up questions, reference what was discussed before.\n"
-            "5. If you cannot answer from the provided material, respond with: "
-            "'I don't have information about that in the available study "
-            "materials. This topic might not be covered in the current "
-            "knowledge base.'\n"
-            "6. Keep answers concise but thorough."
-        )
-
-    def _build_user_prompt(self, question: str, chunks: list[dict]) -> str:
-        """Build the user prompt with context and conversation history."""
+    def _build_history_section(self) -> str:
+        """Build the conversation history section for the enhanced prompt."""
+        if not self._history:
+            return "No previous conversation."
+        
         parts: list[str] = []
-
-        # Add conversation history for context
-        if self._history:
-            parts.append("=== Conversation History ===")
-            # Include recent history for follow-up context
-            recent = self._history[-(MAX_HISTORY_EXCHANGES * 2):]
-            for msg in recent:
-                role_label = "Student" if msg["role"] == "user" else "Tutor"
-                parts.append(f"{role_label}: {msg['content']}")
-            parts.append("")
-
-        # Add retrieved source material
-        if chunks:
-            parts.append("=== Source Material ===")
-            for chunk in chunks:
-                chunk_id = chunk.get("id", "unknown")
-                content = chunk.get("content", "")
-                if content:
-                    parts.append(f"[{chunk_id}]: {content}")
-            parts.append("")
-        else:
-            parts.append("=== Source Material ===")
-            parts.append("No relevant material found in the knowledge base.")
-            parts.append("")
-
-        # Add the current question
-        parts.append(f"=== Current Question ===")
-        parts.append(f"Student: {question}")
-        parts.append("")
-        parts.append(
-            "Please answer the student's question using ONLY the source "
-            "material above. Cite sources using [Source: chunk_id] format."
-        )
-
+        recent = self._history[-(MAX_HISTORY_EXCHANGES * 2):]
+        for msg in recent:
+            role_label = "Student" if msg["role"] == "user" else "Tutor"
+            parts.append(f"{role_label}: {msg['content']}")
+        
         return "\n".join(parts)
+
+    def _build_source_section(self, chunks: list[dict]) -> str:
+        """Build the source material section for the enhanced prompt."""
+        if not chunks:
+            return "No relevant material found in the knowledge base."
+        
+        parts: list[str] = []
+        for chunk in chunks:
+            chunk_id = chunk.get("id", "unknown")
+            content = chunk.get("content", "")
+            if content:
+                parts.append(f"[{chunk_id}]: {content}")
+        
+        return "\n\n".join(parts)
 
     def _build_retrieval_query(self, question: str) -> str:
         """Enrich the question with conversation context for better retrieval.

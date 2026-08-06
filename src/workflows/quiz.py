@@ -3,6 +3,8 @@
 Implements a sequential pipeline: retrieve → generate → validate → format.
 Produces quiz questions (MCQ, short_answer, true_false) from retrieved
 knowledge chunks using an LLM.
+
+Enhanced with expert-level prompts for maximum quality output.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from models.knowledge import Difficulty
 from models.output import QuizQuestion
 from src.llm import LLMClient
 from src.retrieval.retriever import Retriever
+from src.prompts.enhanced import QUIZ_SYSTEM_PROMPT, QUIZ_USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger("neuroforge.workflows.quiz")
 
@@ -148,29 +151,38 @@ class QuizWorkflow:
     ) -> list[dict]:
         """Stage 2: Use LLM to generate quiz questions from context.
 
-        Constructs a prompt with the retrieved context and asks the LLM
-        to produce questions in JSON format.
+        Uses enhanced prompts for maximum quality output.
         """
-        prompt = self._build_prompt(
-            topic=topic,
-            difficulty=difficulty,
-            num_questions=num_questions,
-            question_types=question_types,
-            chunks=chunks,
-        )
+        # Build context from chunks
+        if chunks:
+            context_parts = []
+            for chunk in chunks[:12]:  # More context for better questions
+                content = chunk.get("content", "")
+                if content:
+                    context_parts.append(content)
+            context_text = "\n\n---\n\n".join(context_parts)
+        else:
+            context_text = f"General knowledge about: {topic}"
 
-        system_prompt = (
-            "You are an expert quiz generator for educational content. "
-            "Generate questions that test understanding, not just memorization. "
-            "You MUST respond with valid JSON only."
+        # Format question types for prompt
+        type_str = ", ".join(question_types)
+        
+        # Build the enhanced prompt
+        prompt = QUIZ_USER_PROMPT_TEMPLATE.format(
+            num_questions=num_questions,
+            topic=topic,
+            difficulty=difficulty or "medium",
+            question_types=type_str,
+            context=context_text,
         )
 
         try:
             result, _usage = self.llm_client.generate_json(
                 prompt=prompt,
                 response_model=_QuizBatch,
-                system_prompt=system_prompt,
-                temperature=0.7,
+                system_prompt=QUIZ_SYSTEM_PROMPT,
+                temperature=0.6,  # Slightly lower for more consistent quality
+                max_tokens=4096,  # More tokens for detailed explanations
             )
             return result.questions
         except Exception as e:

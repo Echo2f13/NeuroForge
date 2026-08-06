@@ -5,6 +5,8 @@ real-world applications, industry uses, common mistakes, and interview questions
 for a given topic. Uses the Retriever for context gathering and LLMClient for
 generation with structured output.
 
+Enhanced with expert-level prompts for maximum quality output.
+
 Pipeline steps:
 1. Retrieve: Query the knowledge base for relevant concepts
 2. Generate: Use LLM to produce additional info items
@@ -20,6 +22,10 @@ from pydantic import BaseModel, Field
 
 from src.llm import LLMClient
 from src.retrieval import Retriever
+from src.prompts.enhanced import (
+    ADDITIONAL_INFO_SYSTEM_PROMPT,
+    ADDITIONAL_INFO_USER_PROMPT_TEMPLATE,
+)
 
 logger = logging.getLogger("neuroforge.workflows.additional_info")
 
@@ -33,47 +39,17 @@ class _AdditionalInfoOutput(BaseModel):
     """Schema for additional info structured output from LLM."""
 
     applications: list[str] = Field(
-        ..., description="3-5 real-world applications of this topic"
+        ..., description="5 real-world applications of this topic with industry names"
     )
     industry_uses: list[str] = Field(
-        ..., description="3-5 industry uses of this topic"
+        ..., description="5 industry uses in format 'Industry: Use case'"
     )
     common_mistakes: list[str] = Field(
-        ..., description="3-5 common mistakes learners make with this topic"
+        ..., description="5 common mistakes in format 'Mistake: Description → Consequence'"
     )
     interview_questions: list[str] = Field(
-        ..., description="3-5 interview questions related to this topic"
+        ..., description="5 interview questions with difficulty levels"
     )
-
-
-# ---------------------------------------------------------------------------
-# Prompts
-# ---------------------------------------------------------------------------
-
-ADDITIONAL_INFO_SYSTEM_PROMPT = """You are an expert educator and industry professional creating supplementary learning material.
-
-Your goal is to provide practical, real-world context for academic topics to help students understand relevance and prepare for interviews.
-
-Rules:
-1. Each list should contain 3-5 items.
-2. Applications should be specific and concrete (not vague).
-3. Industry uses should mention real sectors or company types.
-4. Common mistakes should be actionable — describe what learners do wrong and why.
-5. Interview questions should range from basic to advanced difficulty.
-"""
-
-ADDITIONAL_INFO_USER_PROMPT_TEMPLATE = """Generate additional information about "{topic}" using the following source material.
-
-Source material:
-{context}
-
-Provide:
-1. **Real-world applications** (3-5): Concrete examples of how this topic is used in practice.
-2. **Industry uses** (3-5): Specific industries or company types that rely on this topic.
-3. **Common mistakes** (3-5): Mistakes learners commonly make, with brief explanation.
-4. **Interview questions** (3-5): Questions a candidate might be asked, ranging from basic to advanced.
-
-Respond with valid JSON only."""
 
 
 # ---------------------------------------------------------------------------
@@ -155,8 +131,7 @@ class AdditionalInfoWorkflow:
     def _generate(self, topic: str, chunks: list[dict]) -> _AdditionalInfoOutput:
         """Step 2: Generate additional info using the LLM.
 
-        Builds a prompt from the retrieved context and uses structured
-        JSON output to get additional info data from the LLM.
+        Uses enhanced prompts for maximum quality output.
 
         Args:
             topic: The topic for generation.
@@ -167,6 +142,7 @@ class AdditionalInfoWorkflow:
         """
         context = self._build_context(chunks)
 
+        # Build the enhanced user prompt
         user_prompt = ADDITIONAL_INFO_USER_PROMPT_TEMPLATE.format(
             topic=topic,
             context=context,
@@ -176,7 +152,8 @@ class AdditionalInfoWorkflow:
             prompt=user_prompt,
             response_model=_AdditionalInfoOutput,
             system_prompt=ADDITIONAL_INFO_SYSTEM_PROMPT,
-            temperature=0.7,
+            temperature=0.7,  # Slightly creative for real-world examples
+            max_tokens=2048,  # Room for detailed responses
         )
 
         logger.debug(f"LLM usage: {usage}")
