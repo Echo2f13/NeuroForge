@@ -93,6 +93,8 @@ npm run dev
 
 Visit http://localhost:3000
 
+> **Note:** NeuroForge is designed as a local-first application. There are no Docker files — run the app directly on your machine.
+
 ---
 
 ## Making Changes

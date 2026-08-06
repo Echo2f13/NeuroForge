@@ -1,294 +1,197 @@
 # NeuroForge — Adaptive Learning Engine
 
+> **🔒 Local-First:** Your study materials never leave your device. All processing happens locally.
+
 ## Overview
 
-NeuroForge is an intelligent learning platform that transforms raw study material into structured, personalized learning experiences. Upload any document — PDF, PPT, DOCX, images, YouTube links, or plain text — and NeuroForge builds a knowledge graph, then generates quizzes, flashcards, solutions, revision notes, mind maps, and more, all adapted to your learning progress.
+NeuroForge is an intelligent learning platform that transforms raw study material into structured, personalized learning experiences. Upload any document — PDF, DOCX, or plain text — and NeuroForge builds a knowledge graph, then generates quizzes, flashcards, solutions, revision notes, mind maps, and more, all adapted to your learning progress.
 
----
-
-## Core Idea
-
-Process material **once** into a canonical knowledge base (concepts, summaries, metadata, embeddings, relationships). Every feature reads from that knowledge base — no redundant re-processing.
+**Key Principles:**
+- 🏠 **Local-First** — All data stays on your machine
+- 🔐 **Privacy-Focused** — No cloud uploads, no tracking
+- 📴 **Offline Capable** — Works without internet (with local LLM)
+- 🆓 **Open Source** — Free to use and modify
 
 ---
 
 ## Features
 
-- **Quiz Generation** — difficulty-aware, with explanations
-- **Flashcards** — with hints, mnemonics, and related topics
-- **Solutions** — depth scales with marks/weight
-- **Revision Notes** — concise, structured summaries
-- **Mind Maps** — visual concept relationships
-- **Additional Info** — applications, history, industry uses, interview questions
-- **Adaptive Learning** — tracks weak/strong topics, adjusts difficulty over time
-- **Chat Tutor** — conversational Q&A grounded in your material
+| Feature | Description |
+|---------|-------------|
+| **Quiz Generation** | MCQ, short answer, true/false with explanations |
+| **Flashcards** | With hints, mnemonics, and spaced repetition |
+| **Revision Notes** | Hierarchical, exam-focused summaries |
+| **Solutions** | Model answers with marking schemes |
+| **Mind Maps** | Visual concept relationships |
+| **Chat Tutor** | RAG-powered Q&A grounded in your materials |
+| **Adaptive Learning** | Tracks progress, adjusts difficulty |
 
 ---
 
-## Architecture
+## Quick Start
 
-```mermaid
-flowchart TD
-    START([Start])
+### Prerequisites
+- Python 3.11+
+- Node.js 20+ (for frontend)
 
-    START --> Upload
-
-    Upload --> DetectFormat
-
-    DetectFormat --> PDF
-    DetectFormat --> PPT
-    DetectFormat --> DOCX
-    DetectFormat --> OCR
-    DetectFormat --> YouTube
-    DetectFormat --> Text
-
-    PDF --> Normalize
-    PPT --> Normalize
-    DOCX --> Normalize
-    OCR --> Normalize
-    YouTube --> Normalize
-    Text --> Normalize
-
-    Normalize --> KnowledgeExtraction
-
-    KnowledgeExtraction --> VectorDB
-    KnowledgeExtraction --> GraphDB
-    KnowledgeExtraction --> Metadata
-
-    VectorDB --> Planner
-    GraphDB --> Planner
-    Metadata --> Planner
-
-    Planner --> Quiz
-    Planner --> Flashcards
-    Planner --> Solutions
-    Planner --> RevisionNotes
-    Planner --> AdditionalInfo
-    Planner --> MindMap
-    Planner --> ChatTutor
-
-    Quiz --> Reviewer
-    Flashcards --> Reviewer
-    Solutions --> Reviewer
-    RevisionNotes --> Reviewer
-    AdditionalInfo --> Reviewer
-    MindMap --> Reviewer
-    ChatTutor --> Reviewer
-
-    Reviewer --> UpdateMemory
-
-    UpdateMemory --> END([End])
-```
-
----
-
-## Pipeline Phases
-
-### Phase 1 — Input Layer
-
-| Input | Loader |
-|-------|--------|
-| PDF | PyMuPDF / pdfplumber |
-| PPT/PPTX | python-pptx |
-| DOCX | python-docx |
-| Images | OCR (PaddleOCR / GPT Vision) |
-| YouTube | Transcript API / Whisper |
-| Plain Text | Direct |
-| Lecture Notes | Markdown/Text parser |
-
-### Phase 2 — Document Understanding
-
-Raw Document → Extract Text → Clean & Remove Garbage → Normalize
-
-### Phase 3 — Knowledge Extraction
-
-Extracts: Topics, Subtopics, Definitions, Formulae, Examples, Important Dates, People, Concept Relationships, Difficulty Levels, Prerequisites.
-
-### Phase 4 — Knowledge Store
-
-Multiple representations stored — not just embeddings:
-
-```
-Document → Chunks → Embeddings → Knowledge Graph → Metadata → Summary → Keywords
-```
-
-Example metadata:
-
-```json
-{
-  "chapter": "Sorting",
-  "difficulty": "Medium",
-  "estimated_time": "15 mins",
-  "concepts": ["Merge Sort", "Quick Sort", "Heap Sort"]
-}
-```
-
-### Phase 5 — Planner (LangGraph)
-
-Routes user intent to the appropriate specialized workflow (Quiz, Flashcards, Notes, Explain, Compare, Roadmap).
-
-### Phase 6 — Specialized Workflows
-
-Each output type has its own generation graph (retrieve → generate → review).
-
-### Phase 7 — User Learning Memory
-
-Tracks quiz scores, weak/strong topics, mastery levels. Adapts future content generation accordingly.
-
----
-
-## Multi-Agent Design
-
-| Agent | Role |
-|-------|------|
-| Planner Agent | Decides what workflow to trigger |
-| Document Agent | Extracts and structures knowledge |
-| Teacher Agent | Explains concepts |
-| Examiner Agent | Creates quizzes and assessments |
-| Reviewer Agent | Checks output quality |
-| Memory Agent | Updates user learning progress |
-
----
-
-## Technology Stack
-
-| Layer | Tools |
-|-------|-------|
-| UI | React / Next.js |
-| Backend API | FastAPI |
-| Workflow | LangGraph |
-| LLM Components | LangChain |
-| Observability | LangSmith |
-| OCR | PaddleOCR / GPT Vision |
-| Embeddings | OpenAI / Voyage AI / BAAI BGE |
-| Vector DB | Chroma (dev), Qdrant or Pinecone (prod) |
-| Knowledge Graph | Neo4j (optional) |
-| Database | PostgreSQL |
-| Storage | S3 / Supabase Storage / Local |
-| Background Jobs | Celery / FastAPI Background Tasks |
-
----
-
-## Project Status
-
-- **Prototype-1**: Python backend + Streamlit UI (current phase)
-- **Prototype-2**: Flutter mobile app (planned)
-
----
-
-## Getting Started
+### Installation
 
 ```bash
-# Clone and enter
+# Clone the repository
+git clone https://github.com/Echo2f13/NeuroForge.git
 cd NeuroForge
 
 # Create virtual environment
 python -m venv .venv
-.venv\Scripts\activate   # On Windows
-# source .venv/bin/activate  # On Linux/Mac
+.venv\Scripts\activate   # Windows
+# source .venv/bin/activate  # Linux/Mac
 
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 
-# Run the API server
-uvicorn main:app --reload
+# Set up environment variables
+cp .env.template .env
+# Edit .env with your API keys (Groq, OpenRouter)
+
+# Run the backend
+python -m uvicorn main:app --reload --port 8000
 ```
 
-The API will be available at `http://localhost:8000`. Interactive documentation at `http://localhost:8000/docs`.
+### Frontend (Optional)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:3000 in your browser.
 
 ---
 
-## API Endpoints
+## LLM Configuration
 
-### Core Endpoints
+NeuroForge supports multiple LLM providers:
 
+| Provider | Model | Notes |
+|----------|-------|-------|
+| **Groq** (Primary) | llama-3.3-70b-versatile | Fast, free tier available |
+| **OpenRouter** (Fallback) | nvidia/nemotron-3-super-120b | More models, pay-as-you-go |
+| **Ollama** (Planned) | Local models | Fully offline |
+
+Configure in `.env`:
+```env
+GROQ_API_KEY=your_key_here
+OPENROUTER_API_KEY=your_key_here
+```
+
+---
+
+## Project Structure
+
+```
+NeuroForge/
+├── main.py              # FastAPI application
+├── requirements.txt     # Python dependencies
+├── src/
+│   ├── ingestion/       # Document loaders
+│   ├── processing/      # Text chunking
+│   ├── extraction/      # Knowledge extraction
+│   ├── store/           # Vector DB, knowledge graph
+│   ├── retrieval/       # Hybrid search
+│   ├── workflows/       # Quiz, flashcard, notes generation
+│   ├── prompts/         # Enhanced LLM prompts
+│   └── learning/        # Spaced repetition
+├── models/              # Pydantic data models
+├── frontend/            # Next.js web UI
+├── tests/               # Test suite
+├── notebooks/           # Jupyter development notebooks
+└── docs/                # Documentation
+```
+
+---
+
+## API Reference
+
+### Health & Status
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/` | GET | API info |
-| `/health` | GET | Health check |
-| `/stats` | GET | Knowledge base & learning stats |
-| `/process` | POST | Multi-agent orchestrator (auto-routes queries) |
+| `/health` | GET | System health check |
+| `/stats` | GET | Usage statistics |
 
-### Document Ingestion
-
+### Document Management
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/upload` | POST | Upload document (PDF, PPTX, DOCX, images) |
-| `/upload/youtube` | POST | Process YouTube video transcript |
+| `/upload` | POST | Upload document (PDF, DOCX, TXT) |
+| `/documents` | GET | List uploaded documents |
 
 ### Content Generation
-
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/quiz` | POST | Generate quiz questions |
-| `/flashcards` | POST | Generate flashcards |
-| `/notes` | POST | Generate revision notes |
-| `/solution` | POST | Generate structured solution |
-| `/mindmap` | POST | Generate mind map |
-| `/additional-info` | POST | Generate applications, interview Q's, etc. |
-
-### Chat Tutor
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
+| `/quiz/generate` | POST | Generate quiz questions |
+| `/flashcards/generate` | POST | Generate flashcards |
+| `/notes/generate` | POST | Generate revision notes |
+| `/solution/generate` | POST | Generate model answer |
 | `/chat` | POST | Chat with AI tutor |
-| `/chat/{session_id}` | DELETE | Reset chat session |
-
-### Learning Progress
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/progress` | GET | Overall learning progress |
-| `/progress/{topic}` | GET | Topic-specific progress |
-| `/progress/score` | POST | Record quiz score |
 
 ### Spaced Repetition
-
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/spaced-repetition/due` | GET | Get due flashcards |
-| `/spaced-repetition/review` | POST | Submit card review |
-| `/spaced-repetition/card/{id}` | GET | Get card stats |
+| `/review/due` | GET | Get cards due for review |
+| `/review/record` | POST | Record review result |
 
-### Search
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/search` | GET | Search knowledge base (semantic/hybrid) |
+Full API docs: http://localhost:8000/docs
 
 ---
 
-## Quick API Examples
+## Roadmap
 
-### Generate a Quiz
-```bash
-curl -X POST http://localhost:8000/quiz \
-  -H "Content-Type: application/json" \
-  -d '{"topic": "Python basics", "num_questions": 5}'
-```
+- [x] Core learning engine
+- [x] Web interface
+- [x] Enhanced LLM prompts
+- [ ] Desktop app (Tauri) — [Issue #2](https://github.com/Echo2f13/NeuroForge/issues/2)
+- [ ] Mobile app — [Issue #1](https://github.com/Echo2f13/NeuroForge/issues/1)
+- [ ] Subject management — [Issue #3](https://github.com/Echo2f13/NeuroForge/issues/3)
+- [ ] Source attribution UI — [Issue #6](https://github.com/Echo2f13/NeuroForge/issues/6)
 
-### Chat with Tutor
-```bash
-curl -X POST http://localhost:8000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Explain recursion"}'
-```
+See [full roadmap](./docs/ROADMAP.md) and [open issues](https://github.com/Echo2f13/NeuroForge/issues).
 
-### Upload a Document
-```bash
-curl -X POST http://localhost:8000/upload \
-  -F "file=@my_notes.pdf"
-```
+---
 
-### Use Multi-Agent Orchestrator
-```bash
-curl -X POST http://localhost:8000/process \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Create flashcards about machine learning"}'
-```
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](./docs/CONTRIBUTING.md) for guidelines.
+
+**Good first issues:**
+- [CI/CD Pipeline (#7)](https://github.com/Echo2f13/NeuroForge/issues/7)
+- Documentation improvements
+- Test coverage
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [VISION.md](./docs/VISION.md) | Project goals and philosophy |
+| [ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Technical system design |
+| [ROADMAP.md](./docs/ROADMAP.md) | Development milestones |
+| [CONTRIBUTING.md](./docs/CONTRIBUTING.md) | Contribution guidelines |
+| [API.md](./docs/API.md) | Full API reference |
 
 ---
 
 ## License
 
-MIT
+MIT — Free to use, modify, and distribute.
+
+---
+
+## Acknowledgments
+
+Built with:
+- [FastAPI](https://fastapi.tiangolo.com/) — Backend framework
+- [Next.js](https://nextjs.org/) — Frontend framework
+- [ChromaDB](https://www.trychroma.com/) — Vector database
+- [Groq](https://groq.com/) — LLM inference
+- [LangChain](https://langchain.com/) — LLM tooling
