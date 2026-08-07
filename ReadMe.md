@@ -144,14 +144,32 @@ Full API docs: http://localhost:8000/docs
 
 ---
 
+## Subject Management 📚
+
+NeuroForge now supports organizing your study materials by subject:
+
+- **Create Subjects**: Organize materials into separate subjects (Physics, Chemistry, etc.)
+- **Isolated Storage**: Each subject has its own knowledge base, progress tracking, and flashcards
+- **Easy Switching**: Switch between subjects with a single click
+- **Cross-Subject Search**: Optionally search across all your subjects
+
+### Quick Start
+1. Click the subject selector in the header
+2. Click "Create New Subject" 
+3. Name your subject and add an icon
+4. Upload materials to your new subject
+5. All quizzes, flashcards, and progress are now scoped to that subject
+
+---
+
 ## Roadmap
 
 - [x] Core learning engine
 - [x] Web interface
 - [x] Enhanced LLM prompts
+- [x] Subject management — [Issue #3](https://github.com/Echo2f13/NeuroForge/issues/3)
 - [ ] Desktop app (Tauri) — [Issue #2](https://github.com/Echo2f13/NeuroForge/issues/2)
 - [ ] Mobile app — [Issue #1](https://github.com/Echo2f13/NeuroForge/issues/1)
-- [ ] Subject management — [Issue #3](https://github.com/Echo2f13/NeuroForge/issues/3)
 - [ ] Source attribution UI — [Issue #6](https://github.com/Echo2f13/NeuroForge/issues/6)
 
 See [full roadmap](./docs/ROADMAP.md) and [open issues](https://github.com/Echo2f13/NeuroForge/issues).

@@ -9,6 +9,7 @@ Interactive docs: `http://localhost:8000/docs` (Swagger UI)
 ## Table of Contents
 
 - [Health & Status](#health--status)
+- [Subject Management](#subject-management)
 - [Document Management](#document-management)
 - [Quiz Generation](#quiz-generation)
 - [Flashcard Generation](#flashcard-generation)
@@ -63,6 +64,190 @@ Usage statistics.
   "concepts_extracted": 45,
   "quizzes_generated": 12,
   "flashcards_generated": 89
+}
+```
+
+---
+
+## Subject Management
+
+Subjects allow you to organize study materials into separate, isolated collections.
+
+### POST /subjects
+Create a new subject.
+
+**Request:**
+```json
+{
+  "name": "Physics",
+  "description": "Classical mechanics and thermodynamics",
+  "color": "#3B82F6",
+  "icon": "📐"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| name | string | Yes | Subject name (must be unique) |
+| description | string | No | Optional description |
+| color | string | No | Hex color code for UI |
+| icon | string | No | Emoji icon for subject |
+
+**Response:**
+```json
+{
+  "id": "subj_abc123",
+  "name": "Physics",
+  "description": "Classical mechanics and thermodynamics",
+  "color": "#3B82F6",
+  "icon": "📐",
+  "created_at": "2026-08-06T12:00:00Z",
+  "is_default": false,
+  "is_archived": false
+}
+```
+
+### GET /subjects
+List all subjects.
+
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| include_archived | bool | false | Include archived subjects |
+
+**Response:**
+```json
+{
+  "subjects": [
+    {
+      "id": "subj_default",
+      "name": "General",
+      "description": "Default subject for all materials",
+      "color": "#6B7280",
+      "icon": "📚",
+      "is_default": true,
+      "is_archived": false,
+      "document_count": 5,
+      "flashcard_count": 89,
+      "last_activity": "2026-08-06T14:30:00Z"
+    },
+    {
+      "id": "subj_abc123",
+      "name": "Physics",
+      "description": "Classical mechanics and thermodynamics",
+      "color": "#3B82F6",
+      "icon": "📐",
+      "is_default": false,
+      "is_archived": false,
+      "document_count": 3,
+      "flashcard_count": 45,
+      "last_activity": "2026-08-05T10:15:00Z"
+    }
+  ]
+}
+```
+
+### GET /subjects/{subject_id}
+Get full subject details with statistics.
+
+**Response:**
+```json
+{
+  "id": "subj_abc123",
+  "name": "Physics",
+  "description": "Classical mechanics and thermodynamics",
+  "color": "#3B82F6",
+  "icon": "📐",
+  "created_at": "2026-08-01T09:00:00Z",
+  "updated_at": "2026-08-06T14:30:00Z",
+  "is_default": false,
+  "is_archived": false,
+  "stats": {
+    "document_count": 3,
+    "chunk_count": 156,
+    "concept_count": 45,
+    "flashcard_count": 45,
+    "quiz_count": 12,
+    "mastery_percent": 72.5
+  }
+}
+```
+
+### PUT /subjects/{subject_id}
+Update a subject.
+
+**Request:**
+```json
+{
+  "name": "Physics 101",
+  "description": "Updated description",
+  "color": "#8B5CF6"
+}
+```
+
+**Response:** Updated subject object.
+
+### DELETE /subjects/{subject_id}
+Delete a subject and all its data.
+
+**Note:** Cannot delete the default "General" subject.
+
+**Response:**
+```json
+{
+  "message": "Subject deleted successfully",
+  "subject_id": "subj_abc123"
+}
+```
+
+### POST /subjects/{subject_id}/archive
+Archive a subject (hide from main list but preserve data).
+
+**Response:**
+```json
+{
+  "message": "Subject archived",
+  "subject_id": "subj_abc123"
+}
+```
+
+### POST /subjects/{subject_id}/restore
+Restore an archived subject.
+
+**Response:**
+```json
+{
+  "message": "Subject restored",
+  "subject_id": "subj_abc123"
+}
+```
+
+### GET /subjects/{subject_id}/documents
+List all documents in a subject.
+
+**Response:**
+```json
+{
+  "documents": [
+    {
+      "id": "doc_abc123",
+      "filename": "classical-mechanics.pdf",
+      "status": "completed",
+      "chunks": 78,
+      "uploaded_at": "2026-08-01T12:00:00Z"
+    }
+  ]
+}
+```
+
+### DELETE /subjects/{subject_id}/documents/{doc_id}
+Remove a document from a subject.
+
+**Response:**
+```json
+{
+  "message": "Document removed from subject",
+  "document_id": "doc_abc123"
 }
 ```
 

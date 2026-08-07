@@ -11,6 +11,8 @@ Model Groups:
 - Output: QuizQuestion, Flashcard, Solution, RevisionNote, SubtopicNote,
           MindMapNode, MindMap
 - Learning State: TopicProgress, LearningState
+- Subject: Subject, SubjectSummary, SubjectSettings, SubjectStatus,
+           SubjectDocument, SubjectDocumentList
 """
 
 from .chunk import Chunk, ChunkMetadata
@@ -34,6 +36,14 @@ from .output import (
     RevisionNote,
     Solution,
     SubtopicNote,
+)
+from .subject import (
+    Subject,
+    SubjectDocument,
+    SubjectDocumentList,
+    SubjectSettings,
+    SubjectStatus,
+    SubjectSummary,
 )
 
 __all__ = [
@@ -65,4 +75,11 @@ __all__ = [
     # Learning State Models
     "TopicProgress",
     "LearningState",
+    # Subject Models
+    "Subject",
+    "SubjectSummary",
+    "SubjectSettings",
+    "SubjectStatus",
+    "SubjectDocument",
+    "SubjectDocumentList",
 ]

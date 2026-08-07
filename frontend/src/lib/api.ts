@@ -2,6 +2,89 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+// ---------------------------------------------------------------------------
+// Subject Types
+// ---------------------------------------------------------------------------
+
+export type SubjectStatus = 'active' | 'archived';
+
+export interface SubjectSettings {
+  auto_generate_flashcards: boolean;
+  default_quiz_length: number;
+  preferred_difficulty: string | null;
+  enable_spaced_repetition: boolean;
+  daily_review_goal: number;
+}
+
+export interface Subject {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  status: SubjectStatus;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+  last_activity_at: string | null;
+  settings: SubjectSettings;
+}
+
+export interface SubjectSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  status: SubjectStatus;
+  is_default: boolean;
+  document_count: number;
+  chunk_count: number;
+  concept_count: number;
+  quiz_count: number;
+  average_score: number;
+  mastery_percent: number;
+  last_activity_at: string | null;
+}
+
+export interface SubjectDocument {
+  id: string;
+  subject_id: string;
+  filename: string;
+  file_type: string;
+  chunk_count: number;
+  concept_count: number;
+  file_size_bytes: number | null;
+  uploaded_at: string;
+}
+
+export interface SubjectStats {
+  document_count: number;
+  chunk_count: number;
+  concept_count: number;
+  quiz_count: number;
+  average_score: number;
+  mastery_percent: number;
+}
+
+export interface CreateSubjectInput {
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+}
+
+export interface UpdateSubjectInput {
+  name?: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Existing Types
+// ---------------------------------------------------------------------------
+
 export interface QuizQuestion {
   id: string;
   question: string;
@@ -181,12 +264,17 @@ class NeuroForgeAPI {
   }
 
   // Document Upload (Sync)
-  async uploadDocument(file: File, asyncMode: boolean = false) {
+  async uploadDocument(file: File, asyncMode: boolean = false, subjectId?: string) {
     const formData = new FormData();
     formData.append('file', file);
 
-    const url = asyncMode 
-      ? `${this.baseUrl}/upload?async_mode=true`
+    const params = new URLSearchParams();
+    if (asyncMode) params.append('async_mode', 'true');
+    if (subjectId) params.append('subject_id', subjectId);
+    
+    const queryString = params.toString();
+    const url = queryString 
+      ? `${this.baseUrl}/upload?${queryString}`
       : `${this.baseUrl}/upload`;
 
     const response = await fetch(url, {
@@ -252,40 +340,46 @@ class NeuroForgeAPI {
   }
 
   // Content Generation
-  async generateQuiz(topic: string, numQuestions: number = 10, difficulty?: string) {
-    return this.request<{ status: string; topic: string; count: number; questions: QuizQuestion[] }>('/quiz', {
+  async generateQuiz(topic: string, numQuestions: number = 10, difficulty?: string, subjectId?: string) {
+    return this.request<{ status: string; topic: string; subject_id: string; count: number; questions: QuizQuestion[] }>('/quiz', {
       method: 'POST',
       body: JSON.stringify({
         topic,
         num_questions: numQuestions,
         difficulty: difficulty || null,
+        subject_id: subjectId || 'general',
       }),
     });
   }
 
-  async generateFlashcards(topic: string, numCards: number = 10, difficulty?: string) {
-    return this.request<{ status: string; topic: string; count: number; flashcards: Flashcard[] }>('/flashcards', {
+  async generateFlashcards(topic: string, numCards: number = 10, difficulty?: string, subjectId?: string) {
+    return this.request<{ status: string; topic: string; subject_id: string; count: number; flashcards: Flashcard[] }>('/flashcards', {
       method: 'POST',
       body: JSON.stringify({
         topic,
         num_cards: numCards,
         difficulty: difficulty || null,
+        subject_id: subjectId || 'general',
       }),
     });
   }
 
-  async generateNotes(topic: string) {
-    return this.request<{ status: string; topic: string; notes: RevisionNote }>('/notes', {
+  async generateNotes(topic: string, subjectId?: string) {
+    return this.request<{ status: string; topic: string; subject_id: string; notes: RevisionNote }>('/notes', {
       method: 'POST',
-      body: JSON.stringify({ topic }),
+      body: JSON.stringify({ 
+        topic,
+        subject_id: subjectId || 'general',
+      }),
     });
   }
 
-  async generateSolution(question: string, topic: string = 'General', marks: number = 5) {
+  async generateSolution(question: string, topic: string = 'General', marks: number = 5, subjectId?: string) {
     return this.request<{
       status: string;
       question: string;
       topic: string;
+      subject_id: string;
       marks: number;
       solution: {
         question: string;
@@ -297,11 +391,16 @@ class NeuroForgeAPI {
       };
     }>('/solution', {
       method: 'POST',
-      body: JSON.stringify({ question, topic, marks }),
+      body: JSON.stringify({ 
+        question, 
+        topic, 
+        marks,
+        subject_id: subjectId || 'general',
+      }),
     });
   }
 
-  async generateAdditionalInfo(topic: string) {
+  async generateAdditionalInfo(topic: string, subjectId?: string) {
     return this.request<{
       status: string;
       topic: string;
@@ -313,23 +412,31 @@ class NeuroForgeAPI {
       };
     }>('/additional-info', {
       method: 'POST',
-      body: JSON.stringify({ topic }),
+      body: JSON.stringify({ 
+        topic,
+        subject_id: subjectId || 'general',
+      }),
     });
   }
 
-  async generateMindMap(topic: string, maxDepth: number = 3) {
+  async generateMindMap(topic: string, maxDepth: number = 3, subjectId?: string) {
     return this.request<{
       status: string;
       topic: string;
+      subject_id: string;
       mindmap: MindMap;
     }>('/mindmap', {
       method: 'POST',
-      body: JSON.stringify({ topic, max_depth: maxDepth }),
+      body: JSON.stringify({ 
+        topic, 
+        max_depth: maxDepth,
+        subject_id: subjectId || 'general',
+      }),
     });
   }
 
   // Chat
-  async chat(message: string, sessionId?: string) {
+  async chat(message: string, sessionId?: string, subjectId?: string) {
     return this.request<{
       answer: string;
       sources: string[];
@@ -337,7 +444,11 @@ class NeuroForgeAPI {
       session_id: string;
     }>('/chat', {
       method: 'POST',
-      body: JSON.stringify({ message, session_id: sessionId }),
+      body: JSON.stringify({ 
+        message, 
+        session_id: sessionId,
+        subject_id: subjectId || 'general',
+      }),
     });
   }
 
@@ -348,8 +459,9 @@ class NeuroForgeAPI {
   }
 
   // Progress
-  async getProgress() {
-    return this.request<LearningProgress>('/progress');
+  async getProgress(subjectId?: string) {
+    const params = subjectId ? `?subject_id=${encodeURIComponent(subjectId)}` : '';
+    return this.request<LearningProgress & { subject_id: string }>(`/progress${params}`);
   }
 
   async getTopicProgress(topic: string) {
@@ -360,10 +472,14 @@ class NeuroForgeAPI {
     }>(`/progress/${encodeURIComponent(topic)}`);
   }
 
-  async recordScore(topic: string, score: number) {
-    return this.request<{ status: string; topic: string; score: number; mastery_level: string }>('/progress/score', {
+  async recordScore(topic: string, score: number, subjectId?: string) {
+    return this.request<{ status: string; topic: string; subject_id: string; score: number; mastery_level: string }>('/progress/score', {
       method: 'POST',
-      body: JSON.stringify({ topic, score }),
+      body: JSON.stringify({ 
+        topic, 
+        score,
+        subject_id: subjectId || 'general',
+      }),
     });
   }
 
@@ -387,8 +503,9 @@ class NeuroForgeAPI {
   }
 
   // Dashboard
-  async getDashboard() {
-    return this.request<DashboardData>('/dashboard');
+  async getDashboard(subjectId?: string) {
+    const params = subjectId ? `?subject_id=${encodeURIComponent(subjectId)}` : '';
+    return this.request<DashboardData & { subject_id: string }>(`/dashboard${params}`);
   }
 
   async recordReview(cardId: string, quality: number) {
@@ -434,6 +551,91 @@ class NeuroForgeAPI {
       method: 'POST',
       body: JSON.stringify({ query }),
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Subject Management
+  // ---------------------------------------------------------------------------
+
+  async createSubject(data: CreateSubjectInput) {
+    return this.request<{
+      status: string;
+      message: string;
+      subject: Subject;
+    }>('/subjects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listSubjects(includeArchived: boolean = false, sortBy: string = 'last_activity') {
+    return this.request<{
+      subjects: SubjectSummary[];
+      total_count: number;
+      active_count: number;
+      archived_count: number;
+    }>(`/subjects?include_archived=${includeArchived}&sort_by=${sortBy}`);
+  }
+
+  async getSubject(subjectId: string) {
+    return this.request<{
+      subject: Subject;
+      stats: SubjectStats;
+    }>(`/subjects/${encodeURIComponent(subjectId)}`);
+  }
+
+  async updateSubject(subjectId: string, data: UpdateSubjectInput) {
+    return this.request<{
+      status: string;
+      subject: Subject;
+    }>(`/subjects/${encodeURIComponent(subjectId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteSubject(subjectId: string, force: boolean = false) {
+    return this.request<{
+      status: string;
+      message: string;
+    }>(`/subjects/${encodeURIComponent(subjectId)}?force=${force}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async archiveSubject(subjectId: string) {
+    return this.request<{
+      status: string;
+      message: string;
+      subject: Subject;
+    }>(`/subjects/${encodeURIComponent(subjectId)}/archive`, {
+      method: 'POST',
+    });
+  }
+
+  async restoreSubject(subjectId: string) {
+    return this.request<{
+      status: string;
+      message: string;
+      subject: Subject;
+    }>(`/subjects/${encodeURIComponent(subjectId)}/restore`, {
+      method: 'POST',
+    });
+  }
+
+  async getSubjectDocuments(subjectId: string) {
+    return this.request<{
+      subject_id: string;
+      documents: SubjectDocument[];
+      total_count: number;
+    }>(`/subjects/${encodeURIComponent(subjectId)}/documents`);
+  }
+
+  async getSubjectStats(subjectId: string) {
+    return this.request<{
+      subject_id: string;
+      stats: SubjectStats;
+    }>(`/subjects/${encodeURIComponent(subjectId)}/stats`);
   }
 }
 

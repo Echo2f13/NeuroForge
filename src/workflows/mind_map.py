@@ -10,6 +10,7 @@ Features:
 - Depth control (limit tree depth via BFS)
 - Node-edge JSON structure via Pydantic MindMap model
 - Optional matplotlib visualization (simple tree layout)
+- Subject-scoped knowledge graphs for isolated learning contexts
 """
 
 from __future__ import annotations
@@ -33,10 +34,16 @@ class MindMapWorkflow:
 
     Args:
         knowledge_graph: Initialized KnowledgeGraph instance with concepts loaded.
+        subject_id: Optional subject identifier for context (informational).
     """
 
-    def __init__(self, knowledge_graph: KnowledgeGraph) -> None:
+    def __init__(
+        self, 
+        knowledge_graph: KnowledgeGraph,
+        subject_id: Optional[str] = None,
+    ) -> None:
         self.knowledge_graph = knowledge_graph
+        self.subject_id = subject_id
 
     # ------------------------------------------------------------------
     # Public API

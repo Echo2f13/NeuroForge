@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { SubjectProvider } from "@/contexts/SubjectContext";
 
 export const metadata: Metadata = {
   title: "NeuroForge - Adaptive Learning Engine",
@@ -13,7 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <SubjectProvider>
+          {children}
+        </SubjectProvider>
+      </body>
     </html>
   );
 }

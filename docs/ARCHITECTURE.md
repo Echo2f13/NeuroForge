@@ -257,6 +257,112 @@ NeuroForge/
 | Graph DB | NetworkX | Knowledge graph |
 | Document Processing | PyMuPDF, python-docx | File parsing |
 
+## Subject Management System
+
+### Overview
+
+The subject system provides isolation between different study areas, allowing users to organize materials by course, topic, or any logical grouping. Each subject maintains completely separate:
+
+- ChromaDB collections for chunks and concepts
+- Isolated knowledge graph
+- Independent learning state and progress tracking
+- Own spaced repetition card pool
+
+### Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `SubjectManager` | `src/subjects/manager.py` | Central CRUD operations and component factories |
+| `SubjectStorage` | `src/subjects/storage.py` | Directory structure and path utilities |
+| `SubjectScopedVectorStore` | `src/subjects/vector_store.py` | Subject-namespaced vector operations |
+| `SubjectRetriever` | `src/subjects/retriever.py` | Subject-scoped RAG retrieval |
+
+### Data Model
+
+```python
+class Subject:
+    id: str              # Unique identifier
+    name: str            # Display name
+    description: str     # Optional description
+    color: str           # UI color (hex)
+    icon: str            # Emoji icon
+    is_default: bool     # True for "General" subject
+    is_archived: bool    # Hidden but preserved
+    created_at: datetime
+    updated_at: datetime
+```
+
+### Data Flow
+
+```
+User selects/creates subject
+         │
+         ▼
+┌─────────────────────┐
+│   SubjectManager    │
+│   - CRUD operations │
+│   - Factory methods │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────┐
+│                 Subject-Scoped Components                │
+│  ┌─────────────────┐  ┌─────────────────┐              │
+│  │  VectorStore    │  │  KnowledgeGraph │              │
+│  │  (ChromaDB)     │  │  (NetworkX)     │              │
+│  │  Collection:    │  │  File:          │              │
+│  │  subj_{id}_     │  │  kg_{id}.json   │              │
+│  │  chunks         │  │                 │              │
+│  └─────────────────┘  └─────────────────┘              │
+│  ┌─────────────────┐  ┌─────────────────┐              │
+│  │  LearningState  │  │  Retriever      │              │
+│  │  File:          │  │  Searches only  │              │
+│  │  ls_{id}.json   │  │  subject's data │              │
+│  └─────────────────┘  └─────────────────┘              │
+└─────────────────────────────────────────────────────────┘
+           │
+           ▼
+    Content generation uses subject's retriever
+    Progress tracked per-subject
+```
+
+### Storage Structure
+
+```
+data/
+└── subjects/
+    ├── subjects.json           # Subject metadata
+    ├── general/                # Default subject
+    │   ├── chroma_db/          # Vector collections
+    │   ├── knowledge_graph.json
+    │   └── learning_state.json
+    └── {subject_id}/           # User-created subjects
+        ├── chroma_db/
+        ├── knowledge_graph.json
+        └── learning_state.json
+```
+
+### Cross-Subject Search
+
+When enabled, retrieval queries multiple subject collections and merges results:
+
+```python
+def cross_subject_search(query: str, subject_ids: List[str]) -> List[Chunk]:
+    results = []
+    for subject_id in subject_ids:
+        retriever = subject_manager.get_retriever(subject_id)
+        results.extend(retriever.search(query))
+    return merge_and_rerank(results)
+```
+
+### Migration
+
+Existing single-subject installations are automatically migrated:
+1. Default "General" subject created
+2. Existing data moved to General's directory
+3. Collection names prefixed with subject ID
+4. Learning state associated with General subject
+
 ## Security Considerations
 
 1. **Local-First:** Default mode processes everything locally

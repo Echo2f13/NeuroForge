@@ -6,6 +6,7 @@ Implements a RAG-powered conversational tutor:
 - Cites source chunk IDs in answers
 - Handles follow-up questions using conversation context
 - Handles out-of-scope questions gracefully
+- Supports subject-scoped retrieval for isolated learning contexts
 
 Enhanced with expert-level prompts for maximum quality output.
 """
@@ -13,10 +14,11 @@ Enhanced with expert-level prompts for maximum quality output.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional, Union
 
 from src.llm import LLMClient
 from src.retrieval.retriever import Retriever
+from src.retrieval.subject_retriever import SubjectRetriever
 from src.prompts.enhanced import (
     CHAT_TUTOR_SYSTEM_PROMPT,
     CHAT_TUTOR_USER_PROMPT_TEMPLATE,
@@ -36,19 +38,27 @@ class ChatTutor:
     follow-up questions naturally.
 
     Args:
-        retriever: Initialized Retriever instance for knowledge lookup.
+        retriever: Initialized Retriever or SubjectRetriever instance for knowledge lookup.
         llm_client: Initialized LLMClient instance for answer generation.
+        subject_id: Optional subject identifier for scoped retrieval.
     """
 
-    def __init__(self, retriever: Retriever, llm_client: LLMClient) -> None:
+    def __init__(
+        self, 
+        retriever: Union[Retriever, SubjectRetriever], 
+        llm_client: LLMClient,
+        subject_id: Optional[str] = None,
+    ) -> None:
         """Initialize the ChatTutor.
 
         Args:
-            retriever: Retriever instance with access to the knowledge base.
+            retriever: Retriever or SubjectRetriever instance with access to the knowledge base.
             llm_client: LLMClient instance for generating responses.
+            subject_id: Optional subject identifier for scoped retrieval.
         """
         self.retriever = retriever
         self.llm_client = llm_client
+        self.subject_id = subject_id
         self._history: list[dict[str, str]] = []
 
     # ------------------------------------------------------------------

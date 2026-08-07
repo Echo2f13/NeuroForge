@@ -6,16 +6,18 @@ relevant content chunks and the LLMClient to generate structured notes
 validated against Pydantic models.
 
 Enhanced with expert-level prompts for maximum quality output.
+Supports subject-scoped retrieval for isolated learning contexts.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 from models.output import RevisionNote, SubtopicNote
 from src.llm import LLMClient, LLMProvider
 from src.retrieval import Retriever
+from src.retrieval.subject_retriever import SubjectRetriever
 from src.prompts.enhanced import (
     REVISION_NOTES_SYSTEM_PROMPT,
     REVISION_NOTES_USER_PROMPT_TEMPLATE,
@@ -35,31 +37,35 @@ class RevisionNotesWorkflow:
     Pipeline: retrieve relevant chunks → generate notes via LLM → validate output.
 
     Args:
-        retriever: Retriever instance for fetching relevant content.
+        retriever: Retriever or SubjectRetriever instance for fetching relevant content.
         llm_client: LLMClient instance for generating notes.
         top_k: Number of chunks to retrieve for context.
         provider: Preferred LLM provider (optional).
+        subject_id: Optional subject identifier for scoped retrieval.
     """
 
     def __init__(
         self,
-        retriever: Retriever,
+        retriever: Union[Retriever, SubjectRetriever],
         llm_client: LLMClient,
         top_k: int = 8,
         provider: Optional[LLMProvider] = None,
+        subject_id: Optional[str] = None,
     ) -> None:
         """Initialize the revision notes workflow.
 
         Args:
-            retriever: Retriever instance for semantic/hybrid search.
+            retriever: Retriever or SubjectRetriever instance for semantic/hybrid search.
             llm_client: LLMClient for structured generation.
             top_k: Number of context chunks to retrieve.
             provider: Preferred LLM provider.
+            subject_id: Optional subject identifier for scoped retrieval.
         """
         self.retriever = retriever
         self.llm_client = llm_client
         self.top_k = top_k
         self.provider = provider
+        self.subject_id = subject_id
 
     def generate(self, topic: str) -> RevisionNote:
         """Generate hierarchical revision notes for a topic.

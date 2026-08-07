@@ -3,20 +3,23 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api, { 
   QuizQuestion, Flashcard, RevisionNote, ChatMessage, 
-  UploadStatus, MindMap, DashboardData 
+  UploadStatus, MindMap, DashboardData, Subject, SubjectSummary
 } from '@/lib/api';
+import { useSubject, useActiveSubjectId } from '@/contexts/SubjectContext';
+import { SubjectSelector, SubjectList, SubjectForm, SubjectCard } from '@/components/subjects';
 
 // ============================================================================
 // Types & Constants
 // ============================================================================
 
-type Tab = 'upload' | 'quiz' | 'flashcards' | 'notes' | 'chat' | 'solution' | 'mindmap' | 'dashboard';
+type Tab = 'upload' | 'quiz' | 'flashcards' | 'notes' | 'chat' | 'solution' | 'mindmap' | 'dashboard' | 'subjects';
 
 const TABS: { id: Tab; label: string; icon: string; color: string }[] = [
+  { id: 'subjects', label: 'Subjects', icon: '📚', color: 'from-cyan-500 to-cyan-600' },
   { id: 'upload', label: 'Upload', icon: '📤', color: 'from-blue-500 to-blue-600' },
   { id: 'quiz', label: 'Quiz', icon: '📝', color: 'from-green-500 to-green-600' },
   { id: 'flashcards', label: 'Flashcards', icon: '🎴', color: 'from-purple-500 to-purple-600' },
-  { id: 'notes', label: 'Notes', icon: '📚', color: 'from-orange-500 to-orange-600' },
+  { id: 'notes', label: 'Notes', icon: '📖', color: 'from-orange-500 to-orange-600' },
   { id: 'chat', label: 'AI Tutor', icon: '💬', color: 'from-pink-500 to-pink-600' },
   { id: 'solution', label: 'Solutions', icon: '💡', color: 'from-yellow-500 to-yellow-600' },
   { id: 'mindmap', label: 'Mind Map', icon: '🗺️', color: 'from-teal-500 to-teal-600' },
@@ -133,12 +136,31 @@ const Input = ({
 // ============================================================================
 
 export default function Home() {
+  // Subject context
+  const { 
+    subjects, 
+    activeSubjectId, 
+    activeSubject, 
+    setActiveSubject,
+    createSubject,
+    updateSubject,
+    deleteSubject,
+    archiveSubject,
+    restoreSubject,
+    loadSubjects,
+    loading: subjectLoading,
+  } = useSubject();
+
   // Core state
   const [activeTab, setActiveTab] = useState<Tab>('upload');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [topic, setTopic] = useState('');
+  
+  // Subject form state
+  const [showSubjectForm, setShowSubjectForm] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   
   // Upload state
   const [uploadProgress, setUploadProgress] = useState<UploadStatus | null>(null);
@@ -201,12 +223,60 @@ export default function Home() {
   const loadDashboard = async () => {
     setLoading(true);
     try {
-      const data = await api.getDashboard();
+      const data = await api.getDashboard(activeSubjectId !== 'general' ? activeSubjectId : undefined);
       setDashboard(data);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Subject handlers
+  const handleCreateSubject = async (data: any) => {
+    try {
+      await createSubject(data);
+      setShowSubjectForm(false);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleUpdateSubject = async (data: any) => {
+    if (!editingSubject) return;
+    try {
+      await updateSubject(editingSubject.id, data);
+      setEditingSubject(null);
+      setShowSubjectForm(false);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleDeleteSubject = async (subject: SubjectSummary) => {
+    if (!confirm(`Are you sure you want to delete "${subject.name}"? This will permanently delete all documents and progress.`)) {
+      return;
+    }
+    try {
+      await deleteSubject(subject.id);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleArchiveSubject = async (subject: SubjectSummary) => {
+    try {
+      await archiveSubject(subject.id);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleRestoreSubject = async (subject: SubjectSummary) => {
+    try {
+      await restoreSubject(subject.id);
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
@@ -220,8 +290,8 @@ export default function Home() {
     setUploadProgress(null);
     
     try {
-      // Use async mode for better UX
-      const result = await api.uploadDocument(file, true);
+      // Use async mode for better UX, pass active subject ID
+      const result = await api.uploadDocument(file, true, activeSubjectId);
       
       if (result.status === 'processing') {
         // Poll for status
@@ -239,7 +309,7 @@ export default function Home() {
       setLoading(false);
       setTimeout(() => setUploadProgress(null), 3000);
     }
-  }, []);
+  }, [activeSubjectId]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -285,7 +355,7 @@ export default function Home() {
     setShowExplanation(false);
     
     try {
-      const result = await api.generateQuiz(topic, 5);
+      const result = await api.generateQuiz(topic, 5, undefined, activeSubjectId);
       setQuizQuestions(result.questions);
     } catch (err: any) {
       setError(err.message);
@@ -309,7 +379,7 @@ export default function Home() {
       setShowExplanation(false);
     } else {
       setQuizCompleted(true);
-      api.recordScore(topic, (quizScore / quizQuestions.length) * 100).catch(console.error);
+      api.recordScore(topic, (quizScore / quizQuestions.length) * 100, activeSubjectId).catch(console.error);
     }
   };
 
@@ -324,7 +394,7 @@ export default function Home() {
     setCardFlipped(false);
     
     try {
-      const result = await api.generateFlashcards(topic, 5);
+      const result = await api.generateFlashcards(topic, 5, undefined, activeSubjectId);
       setFlashcards(result.flashcards);
     } catch (err: any) {
       setError(err.message);
@@ -359,7 +429,7 @@ export default function Home() {
     setNotes(null);
     
     try {
-      const result = await api.generateNotes(topic);
+      const result = await api.generateNotes(topic, activeSubjectId);
       setNotes(result.notes);
     } catch (err: any) {
       setError(err.message);
@@ -377,7 +447,7 @@ export default function Home() {
     setLoading(true);
     
     try {
-      const result = await api.chat(message, sessionId);
+      const result = await api.chat(message, sessionId, activeSubjectId);
       setSessionId(result.session_id);
       setChatMessages(prev => [...prev, { 
         role: 'assistant', 
@@ -410,7 +480,7 @@ export default function Home() {
     setSolution(null);
     
     try {
-      const result = await api.generateSolution(solutionQuestion, topic || 'General', solutionMarks);
+      const result = await api.generateSolution(solutionQuestion, topic || 'General', solutionMarks, activeSubjectId);
       setSolution(result.solution);
     } catch (err: any) {
       setError(err.message);
@@ -427,7 +497,7 @@ export default function Home() {
     setMindMap(null);
     
     try {
-      const result = await api.generateMindMap(topic, 3);
+      const result = await api.generateMindMap(topic, 3, activeSubjectId);
       setMindMap(result.mindmap);
     } catch (err: any) {
       setError(err.message);
@@ -459,22 +529,33 @@ export default function Home() {
               </div>
             </div>
             
-            {stats && (
-              <div className="hidden md:flex items-center gap-8">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-gray-900">{stats.knowledge_base.chunks}</p>
-                  <p className="text-xs text-gray-500 font-medium">Chunks</p>
+            {/* Subject Selector */}
+            <div className="flex items-center gap-6">
+              <SubjectSelector 
+                onCreateNew={() => {
+                  setShowSubjectForm(true);
+                  setEditingSubject(null);
+                }}
+                onViewAll={() => setActiveTab('subjects')}
+              />
+              
+              {stats && (
+                <div className="hidden md:flex items-center gap-8">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-gray-900">{stats.knowledge_base.chunks}</p>
+                    <p className="text-xs text-gray-500 font-medium">Chunks</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-indigo-600">{stats.knowledge_base.concepts}</p>
+                    <p className="text-xs text-gray-500 font-medium">Concepts</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-purple-600">{stats.learning.total_quizzes}</p>
+                    <p className="text-xs text-gray-500 font-medium">Quizzes</p>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-indigo-600">{stats.knowledge_base.concepts}</p>
-                  <p className="text-xs text-gray-500 font-medium">Concepts</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-purple-600">{stats.learning.total_quizzes}</p>
-                  <p className="text-xs text-gray-500 font-medium">Quizzes</p>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -532,12 +613,89 @@ export default function Home() {
           </div>
         )}
 
+        {/* ============ SUBJECTS TAB ============ */}
+        {activeTab === 'subjects' && (
+          <div className="space-y-6">
+            <Card className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">📚 Study Subjects</h2>
+                  <p className="text-gray-600">Organize your learning materials into separate subjects</p>
+                </div>
+              </div>
+              
+              <SubjectList
+                subjects={subjects}
+                activeSubjectId={activeSubjectId}
+                onSelect={(subject) => setActiveSubject(subject.id)}
+                onEdit={(subject) => {
+                  // Fetch full subject details for editing
+                  api.getSubject(subject.id).then(res => {
+                    setEditingSubject(res.subject);
+                    setShowSubjectForm(true);
+                  });
+                }}
+                onArchive={handleArchiveSubject}
+                onDelete={handleDeleteSubject}
+                onRestore={handleRestoreSubject}
+                onCreateNew={() => {
+                  setShowSubjectForm(true);
+                  setEditingSubject(null);
+                }}
+                loading={subjectLoading}
+                showArchived={true}
+              />
+            </Card>
+          </div>
+        )}
+
+        {/* Subject Form Modal */}
+        {showSubjectForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">
+                {editingSubject ? 'Edit Subject' : 'Create New Subject'}
+              </h2>
+              <SubjectForm
+                subject={editingSubject}
+                onSubmit={editingSubject ? handleUpdateSubject : handleCreateSubject}
+                onCancel={() => {
+                  setShowSubjectForm(false);
+                  setEditingSubject(null);
+                }}
+                isLoading={subjectLoading}
+              />
+            </Card>
+          </div>
+        )}
+
         {/* ============ UPLOAD TAB ============ */}
         {activeTab === 'upload' && (
           <div className="space-y-6">
             <Card className="p-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">📤 Upload Study Material</h2>
-              <p className="text-gray-600 mb-6">Upload documents to build your personal knowledge base</p>
+              <p className="text-gray-600 mb-2">Upload documents to build your personal knowledge base</p>
+              
+              {/* Active Subject Indicator */}
+              <div className="mb-6 flex items-center gap-2 text-sm">
+                <span className="text-gray-500">Uploading to:</span>
+                <span 
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-medium"
+                  style={{ 
+                    backgroundColor: activeSubject?.color ? `${activeSubject.color}15` : '#f3f4f6',
+                    color: activeSubject?.color || '#4b5563'
+                  }}
+                >
+                  <span>{activeSubject?.icon || '📚'}</span>
+                  {activeSubject?.name || 'General'}
+                </span>
+                <button 
+                  onClick={() => setActiveTab('subjects')}
+                  className="text-indigo-600 hover:text-indigo-700 hover:underline"
+                >
+                  Change
+                </button>
+              </div>
               
               <div className="grid md:grid-cols-2 gap-6">
                 {/* File Upload Zone */}

@@ -5,6 +5,7 @@ concise Q/A flashcards from retrieved knowledge concepts. Uses the Retriever
 for context gathering and LLMClient for generation with structured output.
 
 Enhanced with expert-level prompts for maximum quality output.
+Supports subject-scoped retrieval for isolated learning contexts.
 
 Pipeline steps:
 1. Retrieve: Query the knowledge base for relevant concepts
@@ -17,7 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +26,7 @@ from models.knowledge import Difficulty
 from models.output import Flashcard
 from src.llm import LLMClient
 from src.retrieval import Retriever
+from src.retrieval.subject_retriever import SubjectRetriever
 from src.prompts.enhanced import FLASHCARD_SYSTEM_PROMPT, FLASHCARD_USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger("neuroforge.workflows.flashcards")
@@ -73,19 +75,27 @@ class FlashcardWorkflow:
     """Generates flashcards using a retrieve → generate → format pipeline.
 
     Args:
-        retriever: Retriever instance for fetching relevant concepts.
+        retriever: Retriever or SubjectRetriever instance for fetching relevant concepts.
         llm_client: LLMClient instance for generation.
+        subject_id: Optional subject identifier for scoped retrieval.
     """
 
-    def __init__(self, retriever: Retriever, llm_client: LLMClient) -> None:
+    def __init__(
+        self, 
+        retriever: Union[Retriever, SubjectRetriever], 
+        llm_client: LLMClient,
+        subject_id: Optional[str] = None,
+    ) -> None:
         """Initialize the FlashcardWorkflow.
 
         Args:
-            retriever: Initialized Retriever for knowledge base queries.
+            retriever: Initialized Retriever or SubjectRetriever for knowledge base queries.
             llm_client: Initialized LLMClient for text generation.
+            subject_id: Optional subject identifier for scoped retrieval.
         """
         self.retriever = retriever
         self.llm_client = llm_client
+        self.subject_id = subject_id
 
     def generate(
         self,

@@ -7,6 +7,7 @@ structured answers with depth scaled by mark allocation:
 - 10-mark: Detailed answer with marking scheme, examples, diagram hints
 
 Enhanced with expert-level prompts for maximum quality output.
+Supports subject-scoped retrieval for isolated learning contexts.
 
 Uses the Retriever for context and LLMClient for generation.
 """
@@ -14,11 +15,12 @@ Uses the Retriever for context and LLMClient for generation.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from models.output import Solution
 from src.llm import LLMClient, LLMProvider
 from src.retrieval.retriever import Retriever
+from src.retrieval.subject_retriever import SubjectRetriever
 from src.prompts.enhanced import (
     SOLUTION_SYSTEM_PROMPT,
     SOLUTION_USER_PROMPT_TEMPLATE,
@@ -126,23 +128,27 @@ class SolutionWorkflow:
 
     Args:
         llm_client: Initialized LLMClient instance.
-        retriever: Optional Retriever for context fetching.
+        retriever: Optional Retriever or SubjectRetriever for context fetching.
                    If None, generates without retrieved context.
+        subject_id: Optional subject identifier for scoped retrieval.
     """
 
     def __init__(
         self,
         llm_client: LLMClient,
-        retriever: Optional[Retriever] = None,
+        retriever: Optional[Union[Retriever, SubjectRetriever]] = None,
+        subject_id: Optional[str] = None,
     ) -> None:
         """Initialize the SolutionWorkflow.
 
         Args:
             llm_client: LLMClient for text generation.
-            retriever: Optional Retriever for fetching relevant context.
+            retriever: Optional Retriever or SubjectRetriever for fetching relevant context.
+            subject_id: Optional subject identifier for scoped retrieval.
         """
         self.llm_client = llm_client
         self.retriever = retriever
+        self.subject_id = subject_id
 
     # ------------------------------------------------------------------
     # Pipeline stages
