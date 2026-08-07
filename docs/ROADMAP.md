@@ -107,7 +107,13 @@ Core learning engine functional with web interface. Ready for local development 
 ## Phase 4: Advanced Features (v2.5+)
 
 ### Learning Analytics
-- [ ] Spaced repetition dashboard (#6)
+- [x] **Spaced repetition dashboard (#8)** ✅
+  - [x] Visual streak counter
+  - [x] Cards due (today/week/month)
+  - [x] Topic mastery progress bars
+  - [x] GitHub-style activity heatmap
+  - [x] Exam readiness score
+  - [x] Learning velocity chart
 - [ ] Learning streaks and gamification
 - [ ] Predicted exam readiness score
 - [ ] Weak topic identification

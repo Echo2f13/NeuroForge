@@ -3,14 +3,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api, { 
   QuizQuestion, Flashcard, RevisionNote, ChatMessage, 
-  LearningProgress, UploadStatus, MindMap 
+  UploadStatus, MindMap, DashboardData 
 } from '@/lib/api';
 
 // ============================================================================
 // Types & Constants
 // ============================================================================
 
-type Tab = 'upload' | 'quiz' | 'flashcards' | 'notes' | 'chat' | 'solution' | 'mindmap' | 'progress';
+type Tab = 'upload' | 'quiz' | 'flashcards' | 'notes' | 'chat' | 'solution' | 'mindmap' | 'dashboard';
 
 const TABS: { id: Tab; label: string; icon: string; color: string }[] = [
   { id: 'upload', label: 'Upload', icon: '📤', color: 'from-blue-500 to-blue-600' },
@@ -20,7 +20,7 @@ const TABS: { id: Tab; label: string; icon: string; color: string }[] = [
   { id: 'chat', label: 'AI Tutor', icon: '💬', color: 'from-pink-500 to-pink-600' },
   { id: 'solution', label: 'Solutions', icon: '💡', color: 'from-yellow-500 to-yellow-600' },
   { id: 'mindmap', label: 'Mind Map', icon: '🗺️', color: 'from-teal-500 to-teal-600' },
-  { id: 'progress', label: 'Progress', icon: '📊', color: 'from-indigo-500 to-indigo-600' },
+  { id: 'dashboard', label: 'Dashboard', icon: '📊', color: 'from-indigo-500 to-indigo-600' },
 ];
 
 // ============================================================================
@@ -175,8 +175,8 @@ export default function Home() {
   // Mind map state
   const [mindMap, setMindMap] = useState<MindMap | null>(null);
   
-  // Progress state
-  const [progress, setProgress] = useState<LearningProgress | null>(null);
+  // Dashboard state (replaces old progress)
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
 
   // Effects
   useEffect(() => {
@@ -198,11 +198,11 @@ export default function Home() {
     }
   };
 
-  const loadProgress = async () => {
+  const loadDashboard = async () => {
     setLoading(true);
     try {
-      const data = await api.getProgress();
-      setProgress(data);
+      const data = await api.getDashboard();
+      setDashboard(data);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -489,7 +489,7 @@ export default function Home() {
                 onClick={() => { 
                   setActiveTab(tab.id); 
                   setError(null);
-                  if (tab.id === 'progress') loadProgress();
+                  if (tab.id === 'dashboard') loadDashboard();
                 }}
                 className={`
                   flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium 
@@ -931,11 +931,13 @@ export default function Home() {
             {/* Input */}
             <div className="p-4 border-t border-gray-100">
               <div className="flex gap-2">
-                <Input
+                <input
+                  type="text"
                   value={chatInput}
-                  onChange={setChatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
                   placeholder="Ask a question..."
-                  onKeyDown={(e: any) => e.key === 'Enter' && !e.shiftKey && sendChatMessage()}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendChatMessage()}
+                  className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200 placeholder:text-gray-400"
                 />
                 <Button onClick={sendChatMessage} disabled={loading || !chatInput.trim()}>
                   Send
@@ -1084,81 +1086,289 @@ export default function Home() {
         )}
 
 
-        {/* ============ PROGRESS TAB ============ */}
-        {activeTab === 'progress' && (
+        {/* ============ DASHBOARD TAB ============ */}
+        {activeTab === 'dashboard' && (
           <div className="space-y-6">
             {loading ? (
               <div className="flex justify-center py-12">
                 <LoadingSpinner size="lg" />
               </div>
-            ) : progress ? (
+            ) : dashboard ? (
               <>
-                {/* Stats Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Card className="p-5 text-center">
-                    <p className="text-3xl font-bold text-indigo-600">{progress.stats.total_quizzes}</p>
-                    <p className="text-sm text-gray-500 mt-1">Quizzes Taken</p>
+                {/* Top Stats Row: Streak + Due Cards + Exam Readiness */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Streak Card */}
+                  <Card className="p-6 bg-gradient-to-br from-orange-50 to-red-50 border-orange-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-orange-600">Current Streak</p>
+                        <p className="text-4xl font-bold text-orange-600 flex items-center gap-2">
+                          🔥 {dashboard.streak.current_streak}
+                          <span className="text-lg font-normal text-orange-500">days</span>
+                        </p>
+                        <p className="text-xs text-orange-500 mt-1">
+                          Best: {dashboard.streak.longest_streak} days
+                        </p>
+                      </div>
+                      <div className="text-6xl opacity-20">🔥</div>
+                    </div>
                   </Card>
-                  <Card className="p-5 text-center">
-                    <p className="text-3xl font-bold text-purple-600">{progress.stats.total_topics}</p>
-                    <p className="text-sm text-gray-500 mt-1">Topics Studied</p>
+
+                  {/* Due Cards Summary */}
+                  <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
+                    <p className="text-sm font-medium text-blue-600 mb-3">Cards Due</p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2 bg-white/60 rounded-lg">
+                        <p className="text-2xl font-bold text-blue-600">{dashboard.due_cards.today}</p>
+                        <p className="text-xs text-blue-500">Today</p>
+                      </div>
+                      <div className="p-2 bg-white/60 rounded-lg">
+                        <p className="text-2xl font-bold text-indigo-600">{dashboard.due_cards.this_week}</p>
+                        <p className="text-xs text-indigo-500">This Week</p>
+                      </div>
+                      <div className="p-2 bg-white/60 rounded-lg">
+                        <p className="text-2xl font-bold text-purple-600">{dashboard.due_cards.this_month}</p>
+                        <p className="text-xs text-purple-500">This Month</p>
+                      </div>
+                    </div>
                   </Card>
-                  <Card className="p-5 text-center">
-                    <p className="text-3xl font-bold text-green-600">{progress.stats.average_score.toFixed(0)}%</p>
-                    <p className="text-sm text-gray-500 mt-1">Average Score</p>
-                  </Card>
-                  <Card className="p-5 text-center">
-                    <p className="text-3xl font-bold text-orange-600">{progress.stats.study_time_minutes.toFixed(0)}</p>
-                    <p className="text-sm text-gray-500 mt-1">Minutes Studied</p>
+
+                  {/* Exam Readiness */}
+                  <Card className={`p-6 border-2 ${
+                    dashboard.exam_readiness.level === 'excellent' ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' :
+                    dashboard.exam_readiness.level === 'good' ? 'bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200' :
+                    dashboard.exam_readiness.level === 'moderate' ? 'bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200' :
+                    'bg-gradient-to-br from-red-50 to-orange-50 border-red-200'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Exam Readiness</p>
+                        <p className={`text-4xl font-bold ${
+                          dashboard.exam_readiness.level === 'excellent' ? 'text-green-600' :
+                          dashboard.exam_readiness.level === 'good' ? 'text-blue-600' :
+                          dashboard.exam_readiness.level === 'moderate' ? 'text-yellow-600' :
+                          'text-red-600'
+                        }`}>
+                          {dashboard.exam_readiness.score}%
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">{dashboard.exam_readiness.message}</p>
+                      </div>
+                      <div className="text-5xl">
+                        {dashboard.exam_readiness.level === 'excellent' ? '🏆' :
+                         dashboard.exam_readiness.level === 'good' ? '📈' :
+                         dashboard.exam_readiness.level === 'moderate' ? '📊' : '📚'}
+                      </div>
+                    </div>
                   </Card>
                 </div>
 
-                {/* Topics Analysis */}
+                {/* Overall Stats Row */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <Card className="p-4 text-center">
+                    <p className="text-2xl font-bold text-indigo-600">{dashboard.overall.total_quizzes}</p>
+                    <p className="text-xs text-gray-500">Quizzes Taken</p>
+                  </Card>
+                  <Card className="p-4 text-center">
+                    <p className="text-2xl font-bold text-purple-600">{dashboard.overall.total_topics}</p>
+                    <p className="text-xs text-gray-500">Topics Studied</p>
+                  </Card>
+                  <Card className="p-4 text-center">
+                    <p className="text-2xl font-bold text-green-600">{dashboard.overall.average_score.toFixed(0)}%</p>
+                    <p className="text-xs text-gray-500">Average Score</p>
+                  </Card>
+                  <Card className="p-4 text-center">
+                    <p className="text-2xl font-bold text-blue-600">{dashboard.streak.total_cards_reviewed}</p>
+                    <p className="text-xs text-gray-500">Cards Reviewed</p>
+                  </Card>
+                  <Card className="p-4 text-center">
+                    <p className="text-2xl font-bold text-orange-600">{dashboard.weekly.total_this_week}</p>
+                    <p className="text-xs text-gray-500">This Week</p>
+                  </Card>
+                </div>
+
+                {/* Activity Heatmap */}
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    📅 Activity Calendar
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[800px]">
+                      {/* Heatmap Grid */}
+                      <div className="flex gap-1">
+                        {/* Group by weeks */}
+                        {Array.from({ length: 53 }, (_, weekIndex) => (
+                          <div key={weekIndex} className="flex flex-col gap-1">
+                            {Array.from({ length: 7 }, (_, dayIndex) => {
+                              const dataIndex = weekIndex * 7 + dayIndex;
+                              const day = dashboard.heatmap[dataIndex];
+                              if (!day) return <div key={dayIndex} className="w-3 h-3" />;
+                              
+                              const colors = [
+                                'bg-gray-100',
+                                'bg-green-200',
+                                'bg-green-300',
+                                'bg-green-400',
+                                'bg-green-600',
+                              ];
+                              
+                              return (
+                                <div
+                                  key={dayIndex}
+                                  className={`w-3 h-3 rounded-sm ${colors[day.level]} cursor-pointer transition-transform hover:scale-125`}
+                                  title={`${day.date}: ${day.count} activities`}
+                                />
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                      {/* Legend */}
+                      <div className="flex items-center justify-end gap-2 mt-3 text-xs text-gray-500">
+                        <span>Less</span>
+                        <div className="w-3 h-3 rounded-sm bg-gray-100" />
+                        <div className="w-3 h-3 rounded-sm bg-green-200" />
+                        <div className="w-3 h-3 rounded-sm bg-green-300" />
+                        <div className="w-3 h-3 rounded-sm bg-green-400" />
+                        <div className="w-3 h-3 rounded-sm bg-green-600" />
+                        <span>More</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Topic Mastery + Learning Velocity Row */}
                 <div className="grid md:grid-cols-2 gap-6">
-                  {/* Weak Topics */}
+                  {/* Topic Mastery */}
                   <Card className="p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <span className="text-red-500">⚠️</span> Topics to Review
+                      🎯 Topic Mastery
                     </h3>
-                    {progress.weak_topics.length > 0 ? (
-                      <ul className="space-y-2">
-                        {progress.weak_topics.map((topic, i) => (
-                          <li key={i} className="flex items-center gap-2 p-3 bg-red-50 text-red-800 rounded-lg">
-                            <span>📚</span>
-                            <span>{topic}</span>
-                          </li>
+                    {dashboard.topic_mastery.length > 0 ? (
+                      <div className="space-y-4">
+                        {dashboard.topic_mastery.slice(0, 8).map((topic, i) => (
+                          <div key={i}>
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]">
+                                {topic.topic}
+                              </span>
+                              <span className={`text-sm font-bold ${
+                                topic.mastery_percent >= 85 ? 'text-green-600' :
+                                topic.mastery_percent >= 60 ? 'text-blue-600' :
+                                topic.mastery_percent >= 40 ? 'text-yellow-600' :
+                                'text-red-600'
+                              }`}>
+                                {topic.mastery_percent.toFixed(0)}%
+                              </span>
+                            </div>
+                            <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  topic.mastery_percent >= 85 ? 'bg-gradient-to-r from-green-400 to-green-600' :
+                                  topic.mastery_percent >= 60 ? 'bg-gradient-to-r from-blue-400 to-blue-600' :
+                                  topic.mastery_percent >= 40 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' :
+                                  'bg-gradient-to-r from-red-400 to-red-600'
+                                }`}
+                                style={{ width: `${topic.mastery_percent}%` }}
+                              />
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+                              <span>{topic.attempts} attempts</span>
+                              <span className={`px-1.5 py-0.5 rounded text-xs ${
+                                topic.mastery_level === 'mastered' ? 'bg-green-100 text-green-700' :
+                                topic.mastery_level === 'familiar' ? 'bg-blue-100 text-blue-700' :
+                                topic.mastery_level === 'learning' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-gray-100 text-gray-600'
+                              }`}>
+                                {topic.mastery_level}
+                              </span>
+                            </div>
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     ) : (
-                      <p className="text-gray-500 text-center py-4">No weak topics identified yet</p>
+                      <p className="text-gray-500 text-center py-8">Complete quizzes to see topic mastery</p>
                     )}
                   </Card>
 
-                  {/* Strong Topics */}
+                  {/* Learning Velocity Chart */}
                   <Card className="p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <span className="text-green-500">✅</span> Mastered Topics
+                      📈 Learning Velocity
                     </h3>
-                    {progress.strong_topics.length > 0 ? (
-                      <ul className="space-y-2">
-                        {progress.strong_topics.map((topic, i) => (
-                          <li key={i} className="flex items-center gap-2 p-3 bg-green-50 text-green-800 rounded-lg">
-                            <span>🏆</span>
-                            <span>{topic}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-gray-500 text-center py-4">Complete more quizzes to see mastered topics</p>
-                    )}
+                    <div className="space-y-3">
+                      {dashboard.learning_velocity.map((week, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className="text-xs text-gray-500 w-16">{week.week}</span>
+                          <div className="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden relative">
+                            {week.average_score !== null ? (
+                              <>
+                                <div 
+                                  className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full transition-all duration-500"
+                                  style={{ width: `${week.average_score}%` }}
+                                />
+                                <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white mix-blend-difference">
+                                  {week.average_score.toFixed(0)}%
+                                </span>
+                              </>
+                            ) : (
+                              <span className="absolute inset-0 flex items-center justify-center text-xs text-gray-400">
+                                No data
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-400 w-12">{week.quizzes} quiz</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-4 text-center">
+                      Weekly average scores over the last 8 weeks
+                    </p>
                   </Card>
                 </div>
+
+                {/* Readiness Breakdown */}
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    🎯 Readiness Breakdown
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center p-4 bg-purple-50 rounded-xl">
+                      <p className="text-2xl font-bold text-purple-600">{dashboard.exam_readiness.breakdown.mastery}%</p>
+                      <p className="text-xs text-purple-500 mt-1">Mastery (40%)</p>
+                      <div className="w-full h-1.5 bg-purple-200 rounded-full mt-2">
+                        <div className="h-full bg-purple-500 rounded-full" style={{ width: `${dashboard.exam_readiness.breakdown.mastery}%` }} />
+                      </div>
+                    </div>
+                    <div className="text-center p-4 bg-blue-50 rounded-xl">
+                      <p className="text-2xl font-bold text-blue-600">{dashboard.exam_readiness.breakdown.consistency}%</p>
+                      <p className="text-xs text-blue-500 mt-1">Consistency (30%)</p>
+                      <div className="w-full h-1.5 bg-blue-200 rounded-full mt-2">
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${dashboard.exam_readiness.breakdown.consistency}%` }} />
+                      </div>
+                    </div>
+                    <div className="text-center p-4 bg-green-50 rounded-xl">
+                      <p className="text-2xl font-bold text-green-600">{dashboard.exam_readiness.breakdown.coverage}%</p>
+                      <p className="text-xs text-green-500 mt-1">Coverage (20%)</p>
+                      <div className="w-full h-1.5 bg-green-200 rounded-full mt-2">
+                        <div className="h-full bg-green-500 rounded-full" style={{ width: `${dashboard.exam_readiness.breakdown.coverage}%` }} />
+                      </div>
+                    </div>
+                    <div className="text-center p-4 bg-orange-50 rounded-xl">
+                      <p className="text-2xl font-bold text-orange-600">{dashboard.exam_readiness.breakdown.recency}%</p>
+                      <p className="text-xs text-orange-500 mt-1">Recency (10%)</p>
+                      <div className="w-full h-1.5 bg-orange-200 rounded-full mt-2">
+                        <div className="h-full bg-orange-500 rounded-full" style={{ width: `${dashboard.exam_readiness.breakdown.recency}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               </>
             ) : (
               <Card className="p-12 text-center">
                 <div className="text-5xl mb-4">📊</div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No Progress Data Yet</h3>
-                <p className="text-gray-500">Complete some quizzes to start tracking your progress!</p>
+                <p className="text-gray-500 mb-4">Complete some quizzes to start tracking your progress!</p>
+                <Button onClick={loadDashboard}>Refresh Dashboard</Button>
               </Card>
             )}
           </div>

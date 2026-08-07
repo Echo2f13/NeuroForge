@@ -36,3 +36,5 @@ test_features.py
 
 # Uploaded documents (user data)
 *.pdf
+
+PROJECT_AI_DETAILS.txt

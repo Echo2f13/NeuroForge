@@ -874,6 +874,95 @@ async def record_score(request: ScoreRequest):
 
 
 # ---------------------------------------------------------------------------
+# Endpoints: Dashboard
+# ---------------------------------------------------------------------------
+
+
+@app.get("/dashboard", tags=["Dashboard"])
+async def get_dashboard():
+    """Get comprehensive dashboard data for spaced repetition progress.
+    
+    Returns all metrics needed for the visual dashboard:
+    - Streak information (current, longest)
+    - Cards due (today, this week, this month)
+    - Topic mastery breakdown with percentages
+    - Heatmap calendar data (last 365 days)
+    - Exam readiness score with breakdown
+    - Learning velocity trends (8 weeks)
+    """
+    components = get_components()
+    
+    # Get comprehensive dashboard data from progress tracker
+    dashboard = components["progress_tracker"].get_dashboard_data()
+    
+    # Add due cards info from spaced repetition scheduler
+    from datetime import date, timedelta
+    today = date.today()
+    
+    due_today = components["sr_scheduler"].get_due_cards(today.isoformat())
+    
+    # Calculate due this week
+    week_end = today + timedelta(days=6 - today.weekday())
+    due_week = set(due_today)
+    for i in range(1, 7):
+        future_date = today + timedelta(days=i)
+        if future_date <= week_end:
+            due_week.update(components["sr_scheduler"].get_due_cards(future_date.isoformat()))
+    
+    # Calculate due this month
+    month_end = (today.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+    due_month = set(due_today)
+    current = today + timedelta(days=1)
+    while current <= month_end:
+        due_month.update(components["sr_scheduler"].get_due_cards(current.isoformat()))
+        current += timedelta(days=1)
+    
+    dashboard["due_cards"] = {
+        "today": len(due_today),
+        "this_week": len(due_week),
+        "this_month": len(due_month),
+        "card_ids_today": due_today,
+    }
+    
+    return dashboard
+
+
+@app.post("/dashboard/record-review", tags=["Dashboard"])
+async def record_review(card_id: str, quality: int):
+    """Record a flashcard review and update both SR scheduler and streak tracking.
+    
+    This endpoint should be used instead of /spaced-repetition/review
+    when you want to track reviews for the dashboard streak/heatmap.
+    """
+    components = get_components()
+    
+    try:
+        # Update spaced repetition scheduler
+        components["sr_scheduler"].review_card(card_id, quality)
+        
+        # Update progress tracker for streak/heatmap
+        components["progress_tracker"].record_card_review(card_id)
+        
+        # Get updated stats
+        sr_stats = components["sr_scheduler"].get_card_stats(card_id)
+        streak = components["progress_tracker"]._state.current_streak
+        
+        return {
+            "status": "success",
+            "card_id": card_id,
+            "quality": quality,
+            "next_review": sr_stats["next_review"],
+            "interval_days": sr_stats["interval"],
+            "current_streak": streak,
+        }
+    
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
 # Endpoints: Spaced Repetition
 # ---------------------------------------------------------------------------
 

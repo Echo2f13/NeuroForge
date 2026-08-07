@@ -464,6 +464,142 @@ Record a review result.
 
 ---
 
+## Dashboard
+
+### GET /dashboard
+Get comprehensive learning progress dashboard data.
+
+**Response:**
+```json
+{
+  "streak": {
+    "current_streak": 12,
+    "longest_streak": 25,
+    "total_cards_reviewed": 347
+  },
+  "overall": {
+    "total_quizzes": 45,
+    "total_topics": 8,
+    "average_score": 78.5,
+    "study_time_minutes": 420,
+    "weak_count": 2,
+    "strong_count": 5
+  },
+  "weekly": {
+    "reviews_this_week": 34,
+    "quizzes_this_week": 5,
+    "total_this_week": 39
+  },
+  "monthly": {
+    "reviews_this_month": 156,
+    "quizzes_this_month": 23,
+    "total_this_month": 179
+  },
+  "due_cards": {
+    "today": 15,
+    "this_week": 47,
+    "this_month": 89,
+    "card_ids_today": ["fc-001", "fc-002", "fc-003"]
+  },
+  "topic_mastery": [
+    {
+      "topic": "Heat Treatment",
+      "mastery_percent": 95.0,
+      "mastery_level": "mastered",
+      "attempts": 12,
+      "last_attempted": "2026-08-06T14:30:00Z"
+    },
+    {
+      "topic": "Corrosion",
+      "mastery_percent": 70.0,
+      "mastery_level": "familiar",
+      "attempts": 8,
+      "last_attempted": "2026-08-05T10:15:00Z"
+    }
+  ],
+  "heatmap": [
+    {"date": "2026-08-01", "count": 5, "level": 2},
+    {"date": "2026-08-02", "count": 12, "level": 4},
+    {"date": "2026-08-03", "count": 0, "level": 0}
+  ],
+  "exam_readiness": {
+    "score": 72.5,
+    "level": "good",
+    "message": "Good progress! Focus on weak topics to improve further.",
+    "breakdown": {
+      "mastery": 78.5,
+      "consistency": 80.0,
+      "coverage": 62.5,
+      "recency": 57.1
+    }
+  },
+  "learning_velocity": [
+    {"week": "Week 1", "week_start": "2026-06-17", "average_score": 65.0, "quizzes": 3},
+    {"week": "Week 2", "week_start": "2026-06-24", "average_score": 72.0, "quizzes": 4},
+    {"week": "Week 8", "week_start": "2026-08-05", "average_score": 85.0, "quizzes": 5}
+  ]
+}
+```
+
+**Dashboard Components:**
+
+| Component | Description |
+|-----------|-------------|
+| `streak` | Current and longest streaks, total reviews |
+| `overall` | Aggregate stats across all activity |
+| `weekly/monthly` | Activity summaries for time periods |
+| `due_cards` | Cards due for spaced repetition |
+| `topic_mastery` | Per-topic progress with mastery levels |
+| `heatmap` | Daily activity for GitHub-style calendar (365 days) |
+| `exam_readiness` | Predicted readiness score (0-100) with breakdown |
+| `learning_velocity` | Weekly score trends (8 weeks) |
+
+**Exam Readiness Calculation:**
+- 40% — Average mastery across topics
+- 30% — Consistency (streak factor, max at 30 days)
+- 20% — Coverage (mastered topics / total topics)
+- 10% — Recency (activity in last 7 days)
+
+**Mastery Levels:**
+| Level | Average Score |
+|-------|---------------|
+| `not_started` | No attempts |
+| `learning` | < 60% |
+| `familiar` | 60-84% |
+| `mastered` | ≥ 85% |
+
+**Heatmap Levels:**
+| Level | Activity Count |
+|-------|----------------|
+| 0 | 0 activities |
+| 1 | 1-2 activities |
+| 2 | 3-5 activities |
+| 3 | 6-10 activities |
+| 4 | 11+ activities |
+
+### POST /dashboard/record-review
+Record a flashcard review with streak tracking.
+
+Use this instead of `/review/record` to track reviews for dashboard metrics.
+
+**Request Parameters:**
+- `card_id` (string): Flashcard ID
+- `quality` (int): Review quality 0-5
+
+**Response:**
+```json
+{
+  "status": "success",
+  "card_id": "fc-001",
+  "quality": 4,
+  "next_review": "2026-08-10",
+  "interval_days": 4,
+  "current_streak": 13
+}
+```
+
+---
+
 ## Error Responses
 
 All endpoints may return these error formats:

@@ -57,6 +57,68 @@ export interface LearningProgress {
   strong_topics: string[];
 }
 
+// Dashboard Types
+export interface DashboardData {
+  streak: {
+    current_streak: number;
+    longest_streak: number;
+    total_cards_reviewed: number;
+  };
+  overall: {
+    total_quizzes: number;
+    total_topics: number;
+    average_score: number;
+    study_time_minutes: number;
+    weak_count: number;
+    strong_count: number;
+  };
+  weekly: {
+    reviews_this_week: number;
+    quizzes_this_week: number;
+    total_this_week: number;
+  };
+  monthly: {
+    reviews_this_month: number;
+    quizzes_this_month: number;
+    total_this_month: number;
+  };
+  due_cards: {
+    today: number;
+    this_week: number;
+    this_month: number;
+    card_ids_today: string[];
+  };
+  topic_mastery: Array<{
+    topic: string;
+    mastery_percent: number;
+    mastery_level: string;
+    attempts: number;
+    last_attempted: string | null;
+  }>;
+  heatmap: Array<{
+    date: string;
+    count: number;
+    level: number; // 0-4
+  }>;
+  exam_readiness: {
+    score: number;
+    level: 'excellent' | 'good' | 'moderate' | 'needs_work';
+    message: string;
+    breakdown: {
+      mastery: number;
+      consistency: number;
+      coverage: number;
+      recency: number;
+    };
+  };
+  learning_velocity: Array<{
+    week: string;
+    week_start: string;
+    average_score: number | null;
+    quizzes: number;
+  }>;
+}
+
 export interface UploadStatus {
   job_id: string;
   status: 'pending' | 'processing' | 'extracting' | 'completed' | 'failed';
@@ -321,6 +383,24 @@ class NeuroForgeAPI {
     }>('/spaced-repetition/review', {
       method: 'POST',
       body: JSON.stringify({ card_id: cardId, quality }),
+    });
+  }
+
+  // Dashboard
+  async getDashboard() {
+    return this.request<DashboardData>('/dashboard');
+  }
+
+  async recordReview(cardId: string, quality: number) {
+    return this.request<{
+      status: string;
+      card_id: string;
+      quality: number;
+      next_review: string;
+      interval_days: number;
+      current_streak: number;
+    }>(`/dashboard/record-review?card_id=${encodeURIComponent(cardId)}&quality=${quality}`, {
+      method: 'POST',
     });
   }
 
