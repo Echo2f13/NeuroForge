@@ -4,8 +4,9 @@ This module exports all Pydantic data models used throughout the
 NeuroForge adaptive learning engine.
 
 Model Groups:
-- Core Document: InputFormat, DocumentMetadata, Document, Section
-- Chunk: Chunk, ChunkMetadata
+- Core Document: InputFormat, DocumentMetadata, Document, Section, StoredDocument
+- Chunk: BoundingBox, Chunk, ChunkMetadata
+- Citation: Citation, CitationGroup
 - Knowledge: Difficulty, Concept, ConceptRelationship, KnowledgeExtraction,
              Formula, Example, KeyDate, KeyPerson
 - Output: QuizQuestion, Flashcard, Solution, RevisionNote, SubtopicNote,
@@ -15,8 +16,9 @@ Model Groups:
            SubjectDocument, SubjectDocumentList
 """
 
-from .chunk import Chunk, ChunkMetadata
-from .document import Document, DocumentMetadata, InputFormat, Section
+from .chunk import BoundingBox, Chunk, ChunkMetadata
+from .citation import Citation, CitationGroup
+from .document import Document, DocumentMetadata, InputFormat, Section, StoredDocument
 from .knowledge import (
     Concept,
     ConceptRelationship,
@@ -52,9 +54,14 @@ __all__ = [
     "DocumentMetadata",
     "Document",
     "Section",
+    "StoredDocument",
     # Chunk Models
+    "BoundingBox",
     "Chunk",
     "ChunkMetadata",
+    # Citation Models
+    "Citation",
+    "CitationGroup",
     # Knowledge Models
     "Difficulty",
     "Concept",

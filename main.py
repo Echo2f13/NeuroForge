@@ -1568,6 +1568,235 @@ async def cleanup_old_files(dry_run: bool = True):
 
 
 # ---------------------------------------------------------------------------
+# Endpoints: Source Attribution & Document Viewing
+# ---------------------------------------------------------------------------
+
+# Document storage service (initialized lazily)
+_doc_storage_service = None
+
+
+def get_doc_storage():
+    """Get or create the document storage service."""
+    global _doc_storage_service
+    if _doc_storage_service is None:
+        from src.services import DocumentStorageService
+        _doc_storage_service = DocumentStorageService(base_dir=Path("./data"))
+    return _doc_storage_service
+
+
+class CitationBatchRequest(BaseModel):
+    """Request to get citations for multiple chunks."""
+    chunk_ids: list[str] = Field(..., description="List of chunk IDs to enrich")
+    subject_id: Optional[str] = Field(default="general", description="Subject ID for lookup")
+
+
+@app.get("/chunks/{chunk_id}/citation", tags=["Citations"])
+async def get_chunk_citation(chunk_id: str, subject_id: str = "general"):
+    """Get full citation data for a chunk.
+    
+    Returns detailed source attribution information including:
+    - Document name and format
+    - Page and paragraph numbers
+    - Text excerpt and full content
+    - Bounding boxes for PDF highlighting
+    """
+    from src.services import CitationEnrichmentService
+    
+    components = get_components()
+    doc_storage = get_doc_storage()
+    
+    enrichment_service = CitationEnrichmentService(
+        vector_store=components["vector_store"],
+        doc_storage=doc_storage,
+        subject_id=subject_id,
+    )
+    
+    try:
+        citation = enrichment_service.enrich_chunk(chunk_id, subject_id=subject_id)
+        return {
+            "status": "success",
+            "citation": citation.to_dict(),
+        }
+    except Exception as e:
+        logger.error(f"Citation enrichment failed for {chunk_id}: {e}")
+        raise HTTPException(status_code=404, detail=f"Chunk not found: {chunk_id}")
+
+
+@app.post("/citations/batch", tags=["Citations"])
+async def get_citations_batch(request: CitationBatchRequest):
+    """Get citations for multiple chunks at once.
+    
+    Efficiently fetches citation data for multiple chunks in a single request.
+    Useful for enriching quiz questions, flashcards, or chat responses.
+    """
+    from src.services import CitationEnrichmentService
+    
+    components = get_components()
+    doc_storage = get_doc_storage()
+    
+    enrichment_service = CitationEnrichmentService(
+        vector_store=components["vector_store"],
+        doc_storage=doc_storage,
+        subject_id=request.subject_id,
+    )
+    
+    try:
+        citations = enrichment_service.enrich_batch(
+            request.chunk_ids,
+            subject_id=request.subject_id,
+        )
+        return {
+            "status": "success",
+            "citations": [c.to_dict() for c in citations],
+            "count": len(citations),
+        }
+    except Exception as e:
+        logger.error(f"Batch citation enrichment failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Citation enrichment failed: {str(e)}")
+
+
+@app.get("/subjects/{subject_id}/documents/{doc_id}/file", tags=["Documents"])
+async def get_document_file(
+    subject_id: str,
+    doc_id: str,
+    range_header: Optional[str] = None,
+):
+    """Serve a document file for viewing.
+    
+    Supports HTTP Range headers for partial content (PDF streaming).
+    Returns the document with appropriate Content-Type header.
+    """
+    from fastapi.responses import StreamingResponse, Response
+    from src.services import DocumentStorageService
+    from src.services.document_storage import DocumentNotFoundError
+    
+    doc_storage = get_doc_storage()
+    
+    try:
+        # Get document metadata
+        stored_doc = doc_storage.get_document(subject_id, doc_id)
+        content_type = stored_doc.get_content_type()
+        file_path = doc_storage.get_document_path(subject_id, doc_id)
+        file_size = stored_doc.file_size
+        
+        # Handle range requests for streaming
+        if range_header:
+            # Parse range header (e.g., "bytes=0-1023")
+            import re
+            range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
+            if range_match:
+                start = int(range_match.group(1))
+                end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
+                end = min(end, file_size - 1)
+                
+                content_length = end - start + 1
+                
+                return StreamingResponse(
+                    doc_storage.stream_document(subject_id, doc_id, start, end + 1),
+                    status_code=206,
+                    media_type=content_type,
+                    headers={
+                        "Content-Range": f"bytes {start}-{end}/{file_size}",
+                        "Content-Length": str(content_length),
+                        "Accept-Ranges": "bytes",
+                        "Content-Disposition": f'inline; filename="{stored_doc.filename}"',
+                    },
+                )
+        
+        # Full file response
+        return StreamingResponse(
+            doc_storage.stream_document(subject_id, doc_id),
+            media_type=content_type,
+            headers={
+                "Content-Length": str(file_size),
+                "Accept-Ranges": "bytes",
+                "Content-Disposition": f'inline; filename="{stored_doc.filename}"',
+            },
+        )
+        
+    except DocumentNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Document not found: {doc_id}")
+    except Exception as e:
+        logger.error(f"Error serving document {doc_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error serving document: {str(e)}")
+
+
+@app.get("/subjects/{subject_id}/documents/{doc_id}/metadata", tags=["Documents"])
+async def get_document_metadata(subject_id: str, doc_id: str):
+    """Get metadata for a stored document.
+    
+    Returns document information including filename, format, size,
+    page count, and upload date.
+    """
+    from src.services.document_storage import DocumentNotFoundError
+    
+    doc_storage = get_doc_storage()
+    
+    try:
+        stored_doc = doc_storage.get_document(subject_id, doc_id)
+        return {
+            "status": "success",
+            "document": stored_doc.to_dict(),
+        }
+    except DocumentNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Document not found: {doc_id}")
+
+
+@app.get("/subjects/{subject_id}/documents/{doc_id}/chunks", tags=["Documents"])
+async def get_document_chunks(
+    subject_id: str,
+    doc_id: str,
+    include_content: bool = True,
+):
+    """Get all chunks from a specific document.
+    
+    Returns chunks with their position information for source navigation.
+    Useful for building a document outline or navigation.
+    """
+    components = get_components()
+    
+    try:
+        # Query chunks by document_id in metadata
+        results = components["vector_store"].chunks_collection.get(
+            where={"document_id": doc_id},
+            include=["documents", "metadatas"] if include_content else ["metadatas"],
+        )
+        
+        if not results or not results.get("ids"):
+            return {
+                "status": "success",
+                "document_id": doc_id,
+                "chunks": [],
+                "count": 0,
+            }
+        
+        chunks = []
+        for i, chunk_id in enumerate(results["ids"]):
+            chunk_data = {
+                "id": chunk_id,
+                "metadata": results["metadatas"][i] if results.get("metadatas") else {},
+            }
+            if include_content and results.get("documents"):
+                chunk_data["content"] = results["documents"][i]
+            chunks.append(chunk_data)
+        
+        # Sort by chunk_index
+        chunks.sort(key=lambda c: c["metadata"].get("chunk_index", 0))
+        
+        return {
+            "status": "success",
+            "document_id": doc_id,
+            "subject_id": subject_id,
+            "chunks": chunks,
+            "count": len(chunks),
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting document chunks: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving chunks: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 

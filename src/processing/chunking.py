@@ -7,17 +7,23 @@ Supported strategies:
 - "section": Split at heading boundaries first, then token-chunk within sections.
 - "paragraph": Split on paragraph boundaries (double newlines).
 - "token": Pure token-based sliding window with configurable overlap.
+
+Enhanced with bounding box support for source attribution.
 """
 
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
+from pathlib import Path
 from typing import Optional
 
 import tiktoken
 
-from models import Chunk, ChunkMetadata, Document
+from models import BoundingBox, Chunk, ChunkMetadata, Document
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentChunker:
@@ -391,3 +397,201 @@ class DocumentChunker:
                 break
 
         return current_heading
+
+
+    # ------------------------------------------------------------------
+    # Enhanced chunking with bounding boxes
+    # ------------------------------------------------------------------
+    
+    def chunk_with_bboxes(
+        self,
+        document: Document,
+        strategy: str = "section",
+        source_file: Optional[str] = None,
+        document_format: Optional[str] = None,
+        pdf_path: Optional[str] = None,
+    ) -> list[Chunk]:
+        """Chunk a document with bounding box support for source attribution.
+        
+        Enhanced version of chunk() that extracts bounding boxes from PDFs
+        and includes source file metadata in chunk metadata.
+        
+        Args:
+            document: The Document object to chunk.
+            strategy: Chunking strategy — "section", "paragraph", or "token".
+            source_file: Original filename of the source document.
+            document_format: Format of the source document (pdf/docx/txt).
+            pdf_path: Path to PDF file for bounding box extraction.
+            
+        Returns:
+            Ordered list of Chunk objects with enhanced metadata.
+        """
+        # Get base chunks using the specified strategy
+        chunks = self.chunk(document, strategy)
+        
+        # Add source file info to all chunks
+        for chunk in chunks:
+            chunk.metadata.source_file = source_file
+            chunk.metadata.document_format = document_format
+        
+        # Extract bounding boxes for PDFs
+        if pdf_path and document_format == "pdf":
+            self._add_bboxes_to_chunks(chunks, pdf_path, document)
+        
+        # Add paragraph and line numbers
+        self._add_paragraph_and_line_info(chunks, document)
+        
+        return chunks
+    
+    def _add_bboxes_to_chunks(
+        self,
+        chunks: list[Chunk],
+        pdf_path: str,
+        document: Document,
+    ) -> None:
+        """Add bounding box information to chunks from a PDF.
+        
+        Args:
+            chunks: List of chunks to enhance.
+            pdf_path: Path to the PDF file.
+            document: Source document.
+        """
+        try:
+            from src.processing.bbox_mapper import BboxMapper
+            
+            mapper = BboxMapper()
+            doc_data = mapper.extract_document_bboxes(pdf_path)
+            
+            for chunk in chunks:
+                # Map chunk's character range to bounding boxes
+                bboxes = mapper.map_text_to_bboxes(
+                    doc_data,
+                    chunk.metadata.start_char,
+                    chunk.metadata.end_char,
+                )
+                
+                if bboxes:
+                    chunk.metadata.bounding_boxes = bboxes
+                
+                # Also get page number if not already set
+                if chunk.metadata.page_number is None:
+                    page = mapper.get_page_for_char(
+                        doc_data,
+                        chunk.metadata.start_char,
+                    )
+                    if page:
+                        chunk.metadata.page_number = page
+            
+            logger.info(
+                f"Added bounding boxes to {len(chunks)} chunks from {pdf_path}"
+            )
+            
+        except Exception as e:
+            logger.warning(f"Failed to extract bounding boxes: {e}")
+    
+    def _add_paragraph_and_line_info(
+        self,
+        chunks: list[Chunk],
+        document: Document,
+    ) -> None:
+        """Add paragraph and line number information to chunks.
+        
+        Args:
+            chunks: List of chunks to enhance.
+            document: Source document.
+        """
+        content = document.content
+        
+        # Pre-calculate paragraph boundaries
+        paragraphs = self._find_paragraph_boundaries(content)
+        
+        # Pre-calculate line boundaries
+        lines = content.split('\n')
+        line_starts = []
+        pos = 0
+        for line in lines:
+            line_starts.append(pos)
+            pos += len(line) + 1  # +1 for newline
+        
+        for chunk in chunks:
+            start = chunk.metadata.start_char
+            end = chunk.metadata.end_char
+            
+            # Find paragraph number
+            para_num = self._find_paragraph_number(start, paragraphs)
+            if para_num:
+                chunk.metadata.paragraph_number = para_num
+            
+            # Find line numbers
+            start_line = self._find_line_number(start, line_starts)
+            end_line = self._find_line_number(end - 1, line_starts)
+            
+            if start_line:
+                chunk.metadata.line_start = start_line
+            if end_line:
+                chunk.metadata.line_end = end_line
+    
+    def _find_paragraph_boundaries(self, content: str) -> list[tuple[int, int]]:
+        """Find paragraph start/end positions in content.
+        
+        Args:
+            content: Document content.
+            
+        Returns:
+            List of (start, end) tuples for each paragraph.
+        """
+        paragraphs = []
+        
+        # Split on double newlines
+        para_pattern = re.compile(r'(?:\r?\n){2,}')
+        
+        pos = 0
+        for match in para_pattern.finditer(content):
+            para_end = match.start()
+            if para_end > pos:
+                paragraphs.append((pos, para_end))
+            pos = match.end()
+        
+        # Last paragraph
+        if pos < len(content):
+            paragraphs.append((pos, len(content)))
+        
+        return paragraphs
+    
+    def _find_paragraph_number(
+        self,
+        char_pos: int,
+        paragraphs: list[tuple[int, int]],
+    ) -> Optional[int]:
+        """Find the paragraph number for a character position.
+        
+        Args:
+            char_pos: Character position in content.
+            paragraphs: List of paragraph (start, end) tuples.
+            
+        Returns:
+            Paragraph number (1-indexed) or None.
+        """
+        for i, (start, end) in enumerate(paragraphs, start=1):
+            if start <= char_pos < end:
+                return i
+        return None
+    
+    def _find_line_number(
+        self,
+        char_pos: int,
+        line_starts: list[int],
+    ) -> Optional[int]:
+        """Find the line number for a character position.
+        
+        Args:
+            char_pos: Character position in content.
+            line_starts: List of character positions where each line starts.
+            
+        Returns:
+            Line number (1-indexed) or None.
+        """
+        for i in range(len(line_starts) - 1, -1, -1):
+            if char_pos >= line_starts[i]:
+                return i + 1  # 1-indexed
+        return 1

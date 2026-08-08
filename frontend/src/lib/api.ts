@@ -227,6 +227,83 @@ export interface MindMap {
   }>;
 }
 
+// ---------------------------------------------------------------------------
+// Source Attribution Types
+// ---------------------------------------------------------------------------
+
+export interface BoundingBox {
+  x0: number;  // Left coordinate (0-100%)
+  y0: number;  // Top coordinate (0-100%)
+  x1: number;  // Right coordinate (0-100%)
+  y1: number;  // Bottom coordinate (0-100%)
+  page_width: number;   // Original page width in points
+  page_height: number;  // Original page height in points
+}
+
+export interface Citation {
+  id: string;
+  chunk_id: string;
+  document_id: string;
+  document_name: string;
+  document_format: 'pdf' | 'docx' | 'txt' | 'image' | 'markdown' | 'pptx';
+  page_number: number | null;
+  paragraph_number: number | null;
+  excerpt: string;
+  full_text: string;
+  relevance_score: number;
+  bounding_boxes: BoundingBox[] | null;
+  start_char: number;
+  end_char: number;
+  line_start: number | null;
+  line_end: number | null;
+  section_heading: string | null;
+}
+
+export interface CitationGroup {
+  item_id: string;
+  item_type: 'quiz' | 'flashcard' | 'note' | 'chat' | 'solution' | 'mindmap';
+  citations: Citation[];
+  primary_citation_id: string | null;
+}
+
+export interface StoredDocument {
+  id: string;
+  subject_id: string;
+  filename: string;
+  format: string;
+  storage_path: string;
+  file_size: number;
+  total_pages: number | null;
+  uploaded_at: string;
+  checksum: string;
+  title: string | null;
+  author: string | null;
+}
+
+export interface HighlightRange {
+  page: number;
+  bbox: BoundingBox;
+  start_char: number;
+  end_char: number;
+}
+
+export interface ChunkInfo {
+  id: string;
+  content?: string;
+  metadata: {
+    document_id?: string;
+    chunk_index?: number;
+    page_number?: number;
+    paragraph_number?: number;
+    section_heading?: string;
+    start_char?: number;
+    end_char?: number;
+    source_file?: string;
+    document_format?: string;
+    bounding_boxes?: BoundingBox[];
+  };
+}
+
 class NeuroForgeAPI {
   private baseUrl: string;
 
@@ -636,6 +713,78 @@ class NeuroForgeAPI {
       subject_id: string;
       stats: SubjectStats;
     }>(`/subjects/${encodeURIComponent(subjectId)}/stats`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Source Attribution & Citations
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get full citation data for a single chunk.
+   */
+  async getCitation(chunkId: string, subjectId: string = 'general') {
+    return this.request<{
+      status: string;
+      citation: Citation;
+    }>(`/chunks/${encodeURIComponent(chunkId)}/citation?subject_id=${encodeURIComponent(subjectId)}`);
+  }
+
+  /**
+   * Get citations for multiple chunks at once.
+   */
+  async getCitationsBatch(chunkIds: string[], subjectId: string = 'general') {
+    return this.request<{
+      status: string;
+      citations: Citation[];
+      count: number;
+    }>('/citations/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        chunk_ids: chunkIds,
+        subject_id: subjectId,
+      }),
+    });
+  }
+
+  /**
+   * Get document file URL for viewing.
+   */
+  getDocumentFileUrl(subjectId: string, docId: string): string {
+    return `${this.baseUrl}/subjects/${encodeURIComponent(subjectId)}/documents/${encodeURIComponent(docId)}/file`;
+  }
+
+  /**
+   * Get document metadata.
+   */
+  async getDocumentMetadata(subjectId: string, docId: string) {
+    return this.request<{
+      status: string;
+      document: StoredDocument;
+    }>(`/subjects/${encodeURIComponent(subjectId)}/documents/${encodeURIComponent(docId)}/metadata`);
+  }
+
+  /**
+   * Get all chunks from a document.
+   */
+  async getDocumentChunks(subjectId: string, docId: string, includeContent: boolean = true) {
+    return this.request<{
+      status: string;
+      document_id: string;
+      subject_id: string;
+      chunks: ChunkInfo[];
+      count: number;
+    }>(`/subjects/${encodeURIComponent(subjectId)}/documents/${encodeURIComponent(docId)}/chunks?include_content=${includeContent}`);
+  }
+
+  /**
+   * List all stored documents for a subject (with file viewing support).
+   */
+  async listStoredDocuments(subjectId: string) {
+    return this.request<{
+      subject_id: string;
+      documents: SubjectDocument[];
+      total_count: number;
+    }>(`/subjects/${encodeURIComponent(subjectId)}/documents`);
   }
 }
 
