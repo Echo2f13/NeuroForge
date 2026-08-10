@@ -366,6 +366,61 @@ async def health_check():
     )
 
 
+@app.get("/llm/info", tags=["Info"])
+async def get_llm_info():
+    """Get information about available LLM providers and which is used for extraction.
+    
+    Returns details about:
+    - All configured LLM providers (Groq, OpenRouter, Ollama)
+    - Which provider is available (API key/URL configured)
+    - Which provider is used for knowledge extraction (the critical task)
+    """
+    from src.llm import LLMProvider, DEFAULT_CONFIGS, PROVIDER_BASE_URLS
+    from src.extraction.robust_extractor import RobustExtractor
+    
+    components = get_components()
+    llm_client = components["llm_client"]
+    
+    # Get available providers
+    available_providers = llm_client.available_providers if llm_client else []
+    
+    # Build provider info
+    providers_info = {}
+    for provider in LLMProvider:
+        config = DEFAULT_CONFIGS.get(provider)
+        is_available = provider in available_providers
+        
+        provider_info = {
+            "available": is_available,
+            "model": config.model if config else "unknown",
+        }
+        
+        # Add base URL for Ollama
+        if provider == LLMProvider.OLLAMA:
+            import os
+            ollama_url = os.environ.get("OLLAMA_BASE_URL", PROVIDER_BASE_URLS.get(provider, ""))
+            provider_info["base_url"] = ollama_url
+            provider_info["description"] = "Local LLM for critical knowledge extraction"
+        elif provider == LLMProvider.GROQ:
+            provider_info["description"] = "Primary LLM (fast, cloud-based)"
+        elif provider == LLMProvider.OPENROUTER:
+            provider_info["description"] = "Fallback LLM (many free models)"
+            
+        providers_info[provider.value] = provider_info
+    
+    # Determine extraction provider
+    extraction_provider = "unknown"
+    if llm_client:
+        extractor = RobustExtractor(llm_client=llm_client)
+        extraction_provider = extractor.provider.value if extractor.provider else "groq (default)"
+    
+    return {
+        "providers": providers_info,
+        "extraction_provider": extraction_provider,
+        "extraction_note": "Knowledge extraction uses the best available model for highest quality concept/relationship extraction from uploaded documents. When Ollama is configured, it uses your local qwen2.5-coder:7b model.",
+    }
+
+
 @app.get("/stats", tags=["Info"])
 async def get_stats():
     """Get knowledge base and learning statistics."""
@@ -487,12 +542,19 @@ def process_document_background(
         _upload_jobs[job_id]["message"] = "Extracting knowledge concepts..."
         
         # Extract knowledge using robust extractor
+        # This will use Ollama (qwen2.5-coder:7b) if configured for best quality
         try:
             extractor = RobustExtractor(llm_client=components["llm_client"])
+            
+            # Log which provider is being used for extraction
+            provider_name = extractor.provider.value if extractor.provider else "default (Groq)"
+            logger.info(f"🧠 Knowledge extraction using: {provider_name}")
+            _upload_jobs[job_id]["extraction_provider"] = provider_name
+            
             knowledge = extractor.extract(chunks)
             
             _upload_jobs[job_id]["progress"] = 85
-            _upload_jobs[job_id]["message"] = f"Extracted {len(knowledge.concepts)} concepts. Saving..."
+            _upload_jobs[job_id]["message"] = f"Extracted {len(knowledge.concepts)} concepts using {provider_name}. Saving..."
             
             if knowledge.concepts:
                 components["vector_store"].add_concepts(knowledge.concepts)
@@ -652,9 +714,14 @@ async def upload_document(
         components["vector_store"].add_chunks(chunks)
 
         # Extract knowledge using robust extractor
+        # This will use Ollama (qwen2.5-coder:7b) if configured for best quality
         concepts_extracted = 0
+        extraction_provider = "unknown"
         try:
             extractor = RobustExtractor(llm_client=components["llm_client"])
+            extraction_provider = extractor.provider.value if extractor.provider else "default (Groq)"
+            logger.info(f"🧠 Knowledge extraction using: {extraction_provider}")
+            
             knowledge = extractor.extract(chunks)
             
             if knowledge.concepts:
@@ -666,7 +733,7 @@ async def upload_document(
                 components["knowledge_graph"].add_relationships(knowledge.relationships)
                 
             components["knowledge_graph"].save("./knowledge_graph.json")
-            logger.info(f"Extracted {concepts_extracted} concepts and {len(knowledge.relationships)} relationships")
+            logger.info(f"Extracted {concepts_extracted} concepts and {len(knowledge.relationships)} relationships using {extraction_provider}")
             
         except Exception as e:
             logger.warning(f"Knowledge extraction partial failure: {e}")

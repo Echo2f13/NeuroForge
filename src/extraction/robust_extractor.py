@@ -5,12 +5,14 @@ A more reliable extraction system that:
 - Extracts fewer items per call (better JSON reliability)
 - Has multiple fallback parsing strategies
 - Handles partial failures gracefully
+- Uses Ollama (local LLM) for best quality extraction when available
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import uuid
 from typing import Optional
@@ -200,6 +202,11 @@ class RobustExtractor:
     - Extracts fewer items per call (3-5 vs unlimited)
     - Better handling of partial failures
     - Detailed logging for debugging
+    - Uses Ollama for highest quality extraction (when OLLAMA_BASE_URL is configured)
+    
+    The extractor will automatically use Ollama if configured, falling back to
+    the default provider (Groq) if Ollama is unavailable. This ensures best
+    quality knowledge extraction using your local powerful model.
     """
     
     def __init__(
@@ -207,10 +214,29 @@ class RobustExtractor:
         llm_client: LLMClient,
         provider: Optional[LLMProvider] = None,
         max_concepts_per_batch: int = 5,
+        use_ollama_if_available: bool = True,
     ):
         self.llm_client = llm_client
-        self.provider = provider
         self.max_concepts_per_batch = max_concepts_per_batch
+        self._use_ollama = use_ollama_if_available
+        
+        # Determine which provider to use for extraction
+        # Priority: explicit provider > Ollama (if available and enabled) > default
+        if provider is not None:
+            self.provider = provider
+        elif use_ollama_if_available and self._is_ollama_available():
+            self.provider = LLMProvider.OLLAMA
+            logger.info("🚀 Using Ollama for knowledge extraction (highest quality mode)")
+        else:
+            self.provider = None  # Use default fallback chain
+            
+    def _is_ollama_available(self) -> bool:
+        """Check if Ollama is configured and available."""
+        # Check if OLLAMA_BASE_URL is set (indicates user wants to use Ollama)
+        ollama_url = os.environ.get("OLLAMA_BASE_URL")
+        if ollama_url:
+            return self.llm_client.is_available(LLMProvider.OLLAMA)
+        return False
     
     def extract(self, chunks: list[Chunk]) -> KnowledgeExtraction:
         """Extract concepts and relationships from chunks.

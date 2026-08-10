@@ -1,8 +1,9 @@
 """NeuroForge — Unified LLM Client.
 
-Provides a single interface to two free-tier LLM providers:
+Provides a single interface to multiple LLM providers:
 - Groq (Llama 3.3 70B Versatile) — primary, fast
 - OpenRouter (NVIDIA Nemotron 3 Super 120B free) — fallback
+- Ollama (Local models) — for critical knowledge extraction tasks
 
 Note: GitHub Models was retired on July 30, 2026.
 
@@ -11,6 +12,7 @@ Features:
 - Exponential backoff (1s, 2s, 4s, 8s) with max 3 retries per provider
 - Structured JSON output parsing with Pydantic validation + retry
 - Logging of every call: provider, model, tokens, latency
+- Ollama integration for local model inference (configurable endpoint)
 """
 
 from __future__ import annotations
@@ -44,6 +46,7 @@ class LLMProvider(str, Enum):
 
     GROQ = "groq"
     OPENROUTER = "openrouter"
+    OLLAMA = "ollama"
 
 
 class LLMConfig(BaseModel):
@@ -54,11 +57,15 @@ class LLMConfig(BaseModel):
     temperature: float = 0.7
     max_tokens: int = 2048
     api_key_env: str  # Name of the environment variable holding the API key
+    base_url_env: Optional[str] = None  # Optional env var for base URL (used by Ollama)
 
 
 # ---------------------------------------------------------------------------
 # Default provider configurations
 # ---------------------------------------------------------------------------
+
+# Get Ollama model from env or use default
+_OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:7b")
 
 DEFAULT_CONFIGS: dict[LLMProvider, LLMConfig] = {
     LLMProvider.GROQ: LLMConfig(
@@ -75,9 +82,17 @@ DEFAULT_CONFIGS: dict[LLMProvider, LLMConfig] = {
         max_tokens=2048,
         api_key_env="OPENROUTER_API_KEY",
     ),
+    LLMProvider.OLLAMA: LLMConfig(
+        provider=LLMProvider.OLLAMA,
+        model=_OLLAMA_MODEL,  # Configured via OLLAMA_MODEL env var
+        temperature=0.3,  # Lower temp for more consistent extraction
+        max_tokens=4096,  # Higher token limit for comprehensive extraction
+        api_key_env="OLLAMA_API_KEY",  # Ollama doesn't need a key, but we use "ollama" as placeholder
+        base_url_env="OLLAMA_BASE_URL",  # e.g., http://100.95.121.45:11434/v1
+    ),
 }
 
-# Provider fallback order: Groq → OpenRouter
+# Provider fallback order: Groq → OpenRouter (Ollama is used explicitly, not as fallback)
 FALLBACK_CHAIN: list[LLMProvider] = [
     LLMProvider.GROQ,
     LLMProvider.OPENROUTER,
@@ -87,6 +102,7 @@ FALLBACK_CHAIN: list[LLMProvider] = [
 PROVIDER_BASE_URLS: dict[LLMProvider, str] = {
     LLMProvider.GROQ: "https://api.groq.com/openai/v1",
     LLMProvider.OPENROUTER: "https://openrouter.ai/api/v1",
+    LLMProvider.OLLAMA: "http://localhost:11434/v1",  # Default, can be overridden via OLLAMA_BASE_URL
 }
 
 # Max retries per provider before falling back
@@ -168,6 +184,26 @@ class LLMClient:
     def _init_clients(self) -> None:
         """Initialize OpenAI-compatible clients for each configured provider."""
         for provider, config in self.configs.items():
+            # Handle Ollama specially - it doesn't require an API key
+            if provider == LLMProvider.OLLAMA:
+                # Get base URL from env or use default
+                base_url = os.environ.get(
+                    config.base_url_env or "OLLAMA_BASE_URL",
+                    PROVIDER_BASE_URLS[provider]
+                )
+                # Ollama doesn't need a real API key, use placeholder
+                api_key = os.environ.get(config.api_key_env, "ollama")
+                
+                self._clients[provider] = OpenAI(
+                    api_key=api_key,
+                    base_url=base_url,
+                )
+                logger.info(
+                    f"Initialized {provider.value} client "
+                    f"(model: {config.model}, base_url: {base_url})"
+                )
+                continue
+            
             api_key = os.environ.get(config.api_key_env)
             if not api_key:
                 logger.warning(
