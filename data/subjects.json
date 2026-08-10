@@ -34,5 +34,23 @@
     "created_at": "2026-08-08T08:30:04.212379",
     "updated_at": "2026-08-08T08:30:04.212410",
     "last_activity_at": null
+  },
+  "cba1ed7c-bcd1-4d30-870d-ce72f6afe2db": {
+    "id": "cba1ed7c-bcd1-4d30-870d-ce72f6afe2db",
+    "name": "learn",
+    "description": null,
+    "color": "#3B82F6",
+    "icon": "\ud83d\udcda",
+    "status": "active",
+    "settings": {
+      "default_difficulty": null,
+      "default_quiz_count": 10,
+      "default_flashcard_count": 10,
+      "track_streak_separately": false
+    },
+    "is_default": false,
+    "created_at": "2026-08-10T20:16:39.341978",
+    "updated_at": "2026-08-10T20:16:39.341999",
+    "last_activity_at": null
   }
 }

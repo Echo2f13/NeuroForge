@@ -33,6 +33,7 @@ class SimpleConcept(BaseModel):
     """Simplified concept for more reliable extraction."""
     name: str
     definition: str
+    topic: str = "General"  # Added topic field with default
     difficulty: str = "medium"
     keywords: list[str] = Field(default_factory=list)
 
@@ -66,11 +67,12 @@ TEXT:
 For each concept provide:
 - name: Short name (2-5 words)
 - definition: One clear sentence
+- topic: The main subject area this concept belongs to (e.g., "Machine Learning", "Physics", "Chemistry")
 - difficulty: "easy", "medium", or "hard"
 - keywords: 2-3 related terms
 
 Respond with ONLY valid JSON:
-{{"concepts": [{{"name": "Example", "definition": "A clear definition.", "difficulty": "medium", "keywords": ["term1", "term2"]}}]}}
+{{"concepts": [{{"name": "Example Concept", "definition": "A clear definition.", "topic": "Subject Area", "difficulty": "medium", "keywords": ["term1", "term2"]}}]}}
 """
 
 RELATIONSHIP_PROMPT = """Given these concepts, identify relationships between them.
@@ -155,6 +157,7 @@ def parse_concepts_flexible(text: str) -> list[SimpleConcept]:
                 result.append(SimpleConcept(
                     name=c.get("name", "Unknown"),
                     definition=c.get("definition", c.get("name", "")),
+                    topic=c.get("topic", c.get("topics", ["General"])[0] if isinstance(c.get("topics"), list) and c.get("topics") else "General"),
                     difficulty=c.get("difficulty", "medium"),
                     keywords=c.get("keywords", [])
                 ))
@@ -356,11 +359,14 @@ class RobustExtractor:
             "hard": Difficulty.HARD,
         }
         
+        # Ensure we have at least one topic (required by Concept model)
+        topic = simple.topic if simple.topic else simple.name
+        
         return Concept(
             id=f"concept-{uuid.uuid4().hex[:8]}",
             name=simple.name,
             definition=simple.definition,
-            topics=[],  # Will be inferred from chunk metadata
+            topics=[topic],  # Use extracted topic or fallback to concept name
             difficulty=difficulty_map.get(simple.difficulty.lower(), Difficulty.MEDIUM),
             prerequisites=[],
             keywords=simple.keywords,
