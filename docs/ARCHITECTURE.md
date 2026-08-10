@@ -363,6 +363,143 @@ Existing single-subject installations are automatically migrated:
 3. Collection names prefixed with subject ID
 4. Learning state associated with General subject
 
+## Source Attribution System
+
+### Overview
+
+The source attribution system enables users to trace any generated content (quiz questions, flashcards, notes, chat responses) back to its original source document. This includes exact page numbers, highlighted text regions, and inline document viewing.
+
+### Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `Citation` model | `models/citation.py` | Rich citation data structure |
+| `CitationEnrichmentService` | `src/services/citation_enrichment.py` | Transforms chunk IDs to citations |
+| `DocumentStorageService` | `src/services/document_storage.py` | Stores original documents for viewing |
+| `CitationContext` | `frontend/src/contexts/CitationContext.tsx` | React state for viewer |
+| `DocumentViewer` | `frontend/src/components/document-viewer/` | Inline PDF/DOCX/TXT viewer |
+| `CitationList` | `frontend/src/components/citations/` | Citation display components |
+
+### Data Flow
+
+```
+Upload Document
+       │
+       ▼
+┌─────────────────────────────────────────┐
+│         Document Processing             │
+│  1. Store original file (PDF/DOCX/TXT)  │
+│  2. Extract text with position metadata  │
+│  3. Chunk with page/paragraph tracking   │
+│  4. Store chunks with document_id ref    │
+└──────────────────────┬──────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────┐
+│         Content Generation              │
+│  1. Retrieve relevant chunks            │
+│  2. Generate quiz/flashcard/etc.        │
+│  3. Track source_chunk_ids per item     │
+│  4. Enrich with CitationEnrichmentService│
+│  5. Return items with citations array   │
+└──────────────────────┬──────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────┐
+│         Frontend Display                │
+│  1. Render citations under each item    │
+│  2. User clicks "View in Document"      │
+│  3. CitationContext loads document      │
+│  4. ViewerPanel displays with highlight │
+│  5. Navigate to exact page/position     │
+└─────────────────────────────────────────┘
+```
+
+### Citation Model
+
+```python
+class Citation:
+    id: str                    # Unique citation ID
+    chunk_id: str              # Source chunk reference
+    document_id: str           # Source document reference
+    document_name: str         # Original filename
+    document_format: str       # pdf, docx, txt
+    page_number: int | None    # PDF page (1-indexed)
+    paragraph_number: int | None
+    excerpt: str               # Truncated text (~200 chars)
+    full_text: str             # Complete chunk text
+    relevance_score: float     # Similarity score (0-1)
+    bounding_boxes: list | None  # PDF highlight coordinates
+    start_char: int            # Character offset
+    end_char: int
+    line_start: int | None     # For text files
+    line_end: int | None
+    section_heading: str | None  # Section context
+```
+
+### Document Storage Structure
+
+```
+data/
+└── subjects/
+    └── {subject_id}/
+        └── documents/
+            └── {document_id}/
+                ├── original.pdf       # Original file
+                └── metadata.json      # StoredDocument data
+```
+
+### Bounding Box Extraction
+
+For PDFs, text positions are extracted during chunking:
+
+```python
+# During PDF processing
+for page in pdf.pages:
+    words = page.extract_words()
+    for word in words:
+        bbox = BoundingBox(
+            x0=word['x0'] / page.width * 100,   # Normalize to %
+            y0=word['top'] / page.height * 100,
+            x1=word['x1'] / page.width * 100,
+            y1=word['bottom'] / page.height * 100,
+            page_width=page.width,
+            page_height=page.height
+        )
+```
+
+### Frontend Components
+
+```
+CitationContext (global state)
+    │
+    ├── CitationList
+    │   └── CitationCard (expandable)
+    │       └── "View in Document" button
+    │
+    └── ViewerPanel (split view)
+        ├── ViewerToolbar (zoom, nav, position)
+        └── DocumentViewer (format-specific)
+            ├── PdfViewer (react-pdf + highlights)
+            ├── TextViewer (line numbers)
+            └── DocxViewer (download fallback)
+```
+
+### Viewer Positions
+
+| Position | Use Case |
+|----------|----------|
+| `right` | Desktop default, sidebar |
+| `bottom` | Tablet, more horizontal space |
+| `modal` | Mobile, full-screen focus |
+
+### Mobile Optimizations
+
+- Auto-switch to modal on screens <640px
+- Swipe-down to dismiss
+- Larger touch targets
+- Body scroll lock when open
+
 ## Security Considerations
 
 1. **Local-First:** Default mode processes everything locally

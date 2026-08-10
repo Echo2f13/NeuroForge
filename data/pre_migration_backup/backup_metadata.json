@@ -1,0 +1,8 @@
+{
+  "backup_time": "2026-08-08T07:07:28.863280",
+  "files_backed_up": [
+    "knowledge_graph.json",
+    "learning_state.json",
+    "sr_state.json"
+  ]
+}

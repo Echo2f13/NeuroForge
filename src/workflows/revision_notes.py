@@ -67,7 +67,7 @@ class RevisionNotesWorkflow:
         self.provider = provider
         self.subject_id = subject_id
 
-    def generate(self, topic: str) -> RevisionNote:
+    def generate(self, topic: str) -> tuple[RevisionNote, list[str]]:
         """Generate hierarchical revision notes for a topic.
 
         Pipeline steps:
@@ -79,8 +79,7 @@ class RevisionNotesWorkflow:
             topic: The topic to generate revision notes for.
 
         Returns:
-            A validated RevisionNote instance with subtopics, key terms,
-            formulae, and mnemonics.
+            A tuple of (validated RevisionNote instance, list of source chunk IDs).
 
         Raises:
             LLMError: If all LLM providers fail.
@@ -89,8 +88,8 @@ class RevisionNotesWorkflow:
         logger.info(f"Generating revision notes for topic: {topic}")
 
         # Step 1: Retrieve relevant context
-        context = self._retrieve_context(topic)
-        logger.info(f"Retrieved {len(context)} chunks for context")
+        context, chunk_ids = self._retrieve_context(topic)
+        logger.info(f"Retrieved {len(chunk_ids)} chunks for context")
 
         # Step 2: Generate structured notes via LLM
         revision_note = self._generate_notes(topic, context)
@@ -98,9 +97,9 @@ class RevisionNotesWorkflow:
             f"Generated notes with {len(revision_note.subtopics)} subtopics"
         )
 
-        return revision_note
+        return revision_note, chunk_ids
 
-    def _retrieve_context(self, topic: str) -> str:
+    def _retrieve_context(self, topic: str) -> tuple[str, list[str]]:
         """Retrieve and format relevant chunks for the topic.
 
         Uses hybrid retrieval to combine semantic and graph-based results.
@@ -109,7 +108,7 @@ class RevisionNotesWorkflow:
             topic: The topic to search for.
 
         Returns:
-            Concatenated text from retrieved chunks.
+            Tuple of (concatenated text from retrieved chunks, list of chunk IDs).
         """
         results = self.retriever.hybrid_retrieval(
             query=topic, top_k=self.top_k
@@ -121,14 +120,19 @@ class RevisionNotesWorkflow:
                 query=topic, top_k=self.top_k
             )
 
-        # Format chunks into context string
+        # Format chunks into context string and collect IDs
         context_parts: list[str] = []
+        chunk_ids: list[str] = []
         for i, chunk in enumerate(results, 1):
             content = chunk.get("content", "").strip()
+            chunk_id = chunk.get("id", "")
             if content:
                 context_parts.append(f"[{i}] {content}")
+            if chunk_id:
+                chunk_ids.append(chunk_id)
 
-        return "\n\n".join(context_parts) if context_parts else f"Topic: {topic}"
+        context = "\n\n".join(context_parts) if context_parts else f"Topic: {topic}"
+        return context, chunk_ids
 
     def _generate_notes(self, topic: str, context: str) -> RevisionNote:
         """Generate revision notes using the LLM client.

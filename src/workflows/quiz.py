@@ -161,14 +161,19 @@ class QuizWorkflow:
         """Stage 2: Use LLM to generate quiz questions from context.
 
         Uses enhanced prompts for maximum quality output.
+        Also tracks source chunk IDs for citation support.
         """
-        # Build context from chunks
+        # Build context from chunks and track chunk IDs
+        chunk_ids = []
         if chunks:
             context_parts = []
             for chunk in chunks[:12]:  # More context for better questions
                 content = chunk.get("content", "")
+                chunk_id = chunk.get("id", "")
                 if content:
                     context_parts.append(content)
+                if chunk_id:
+                    chunk_ids.append(chunk_id)
             context_text = "\n\n---\n\n".join(context_parts)
         else:
             context_text = f"General knowledge about: {topic}"
@@ -193,7 +198,14 @@ class QuizWorkflow:
                 temperature=0.6,  # Slightly lower for more consistent quality
                 max_tokens=4096,  # More tokens for detailed explanations
             )
-            return result.questions
+            
+            # Inject source chunk IDs into generated questions
+            questions = result.questions
+            for q in questions:
+                if not q.get("source_chunk_ids"):
+                    q["source_chunk_ids"] = chunk_ids[:3]  # Top 3 most relevant chunks
+            
+            return questions
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
             return []

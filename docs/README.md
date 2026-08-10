@@ -103,6 +103,60 @@ NeuroForge tracks your flashcard reviews using the SM-2 algorithm:
 3. Cards are rescheduled based on your performance
 4. Progress is tracked per-subject
 
+### Source Attribution
+
+NeuroForge tracks where all generated content comes from. When quizzes, flashcards, notes, or chat responses are generated, they include links back to the original source material.
+
+#### Viewing Citations
+
+1. Generate any content (quiz, flashcards, notes, or chat)
+2. Look for the **"Sources"** section below the generated content
+3. Click on a citation to expand it and see the excerpt
+4. Click **"View in Document"** to open the inline document viewer
+
+#### Citation Information
+
+Each citation shows:
+- **Document name:** The original file
+- **Page number:** For PDFs, the specific page
+- **Excerpt:** A brief quote from the source
+- **Relevance score:** How closely the source matches (0-100%)
+
+#### Document Viewer
+
+The document viewer shows the original source with highlighting:
+
+**Desktop:**
+- Opens as a sidebar panel (right side)
+- Can switch to bottom panel or modal view
+- Resize by dragging the divider
+
+**Mobile/Tablet:**
+- Opens as a full-screen modal
+- Swipe down to dismiss
+- Pinch to zoom on PDFs
+
+**Viewer Controls:**
+- **Zoom:** Use +/- buttons or pinch gestures
+- **Navigation:** Use arrow buttons or scroll
+- **Position:** Switch between right sidebar, bottom panel, or modal
+- **Download:** Download the original file
+
+#### Supported Formats
+
+| Format | Features |
+|--------|----------|
+| PDF | Page navigation, bounding box highlights, zoom |
+| DOCX | Character offset highlights (download for full view) |
+| TXT | Line number display, character highlights |
+
+#### Tips for Better Citations
+
+1. **Upload original documents:** PDFs work best for citation accuracy
+2. **Use clear formatting:** Well-structured documents yield better citations
+3. **Check relevance scores:** Higher scores (>80%) indicate better matches
+4. **Explore related citations:** Multiple sources may cover the same topic
+
 ### Migration from Earlier Versions
 
 If you're upgrading from a version without subject support:

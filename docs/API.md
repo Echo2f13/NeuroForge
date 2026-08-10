@@ -11,6 +11,7 @@ Interactive docs: `http://localhost:8000/docs` (Swagger UI)
 - [Health & Status](#health--status)
 - [Subject Management](#subject-management)
 - [Document Management](#document-management)
+- [Source Attribution (Citations)](#source-attribution-citations)
 - [Quiz Generation](#quiz-generation)
 - [Flashcard Generation](#flashcard-generation)
 - [Revision Notes](#revision-notes)
@@ -305,6 +306,174 @@ Get processing progress for a document.
 ```
 
 **Status values:** `pending`, `processing`, `completed`, `failed`
+
+---
+
+## Source Attribution (Citations)
+
+Source attribution allows users to trace generated content (quizzes, flashcards, notes) back to their original source documents. Citations are automatically included in generation responses and can be used to open an inline document viewer.
+
+### Citation Object
+
+All citation objects have this structure:
+
+```json
+{
+  "id": "cit_abc123",
+  "chunk_id": "e2dc90d3_0047",
+  "document_id": "doc_xyz789",
+  "document_name": "engineering-materials.pdf",
+  "document_format": "pdf",
+  "page_number": 12,
+  "paragraph_number": 3,
+  "excerpt": "Martensite forms through a shear transformation when steel is rapidly cooled...",
+  "full_text": "Martensite forms through a shear transformation when steel is rapidly cooled from above the critical temperature. This diffusionless transformation...",
+  "relevance_score": 0.92,
+  "bounding_boxes": [
+    {"x0": 10.5, "y0": 45.2, "x1": 85.3, "y1": 52.8, "page_width": 100, "page_height": 100}
+  ],
+  "start_char": 1234,
+  "end_char": 1567,
+  "line_start": 45,
+  "line_end": 52,
+  "section_heading": "Heat Treatment Processes"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | string | Unique citation ID |
+| chunk_id | string | Original chunk ID from vector store |
+| document_id | string | Source document ID |
+| document_name | string | Original filename |
+| document_format | string | File format (pdf, docx, txt) |
+| page_number | int | Page number (1-indexed, PDF only) |
+| paragraph_number | int | Paragraph number within page |
+| excerpt | string | Truncated text (~200 chars) |
+| full_text | string | Complete chunk text |
+| relevance_score | float | Similarity score (0-1) |
+| bounding_boxes | array | Highlight coordinates (PDF) |
+| start_char | int | Character offset in document |
+| end_char | int | Character end offset |
+| line_start | int | Starting line (text files) |
+| line_end | int | Ending line (text files) |
+| section_heading | string | Section/heading context |
+
+### GET /chunks/{chunk_id}/citation
+Get full citation for a single chunk.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "citation": {
+    "id": "cit_abc123",
+    "chunk_id": "e2dc90d3_0047",
+    "document_name": "engineering-materials.pdf",
+    ...
+  }
+}
+```
+
+### POST /citations/batch
+Get citations for multiple chunks efficiently.
+
+**Request:**
+```json
+{
+  "chunk_ids": ["e2dc90d3_0047", "e2dc90d3_0048", "e2dc90d3_0049"],
+  "subject_id": "subj_abc123"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "citations": [
+    {"id": "cit_001", "chunk_id": "e2dc90d3_0047", ...},
+    {"id": "cit_002", "chunk_id": "e2dc90d3_0048", ...},
+    {"id": "cit_003", "chunk_id": "e2dc90d3_0049", ...}
+  ],
+  "count": 3
+}
+```
+
+### GET /subjects/{subject_id}/documents/{doc_id}/file
+Serve the original document file for viewing.
+
+**Headers:**
+- `Range` (optional): Byte range for streaming (e.g., `bytes=0-1023`)
+
+**Response:**
+- Content-Type: `application/pdf`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`, or `text/plain`
+- Content-Disposition: `inline; filename="document.pdf"`
+- Supports partial content (206) for Range requests
+
+### GET /subjects/{subject_id}/documents/{doc_id}/chunks
+List all chunks from a specific document.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "document_id": "doc_xyz789",
+  "document_name": "engineering-materials.pdf",
+  "chunks": [
+    {
+      "id": "e2dc90d3_0001",
+      "page_number": 1,
+      "content_preview": "Chapter 1: Introduction to Materials..."
+    }
+  ],
+  "total_chunks": 156
+}
+```
+
+### Citations in Generation Responses
+
+All content generation endpoints (quiz, flashcards, notes, chat) now include citations automatically:
+
+**Quiz Response with Citations:**
+```json
+{
+  "questions": [
+    {
+      "id": "q-001",
+      "question": "What microstructure forms when steel is rapidly cooled?",
+      "correct_answer": "Martensite",
+      "explanation": "Rapid cooling prevents diffusion...",
+      "source_chunk_ids": ["e2dc90d3_0047", "e2dc90d3_0048"],
+      "citations": [
+        {
+          "id": "cit_001",
+          "document_name": "engineering-materials.pdf",
+          "page_number": 12,
+          "excerpt": "Martensite forms through a shear transformation...",
+          "relevance_score": 0.92
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Chat Response with Citations:**
+```json
+{
+  "answer": "Martensite forms when steel is rapidly cooled...",
+  "sources": ["e2dc90d3_0047", "e2dc90d3_0048"],
+  "is_grounded": true,
+  "citations": [
+    {
+      "id": "cit_001",
+      "document_name": "engineering-materials.pdf",
+      "page_number": 12,
+      "excerpt": "Martensite forms through...",
+      "relevance_score": 0.92
+    }
+  ]
+}
 
 ---
 

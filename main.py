@@ -204,6 +204,8 @@ class ChatResponse(BaseModel):
     sources: list[str]
     is_grounded: bool
     session_id: str
+    citations: Optional[list[dict]] = Field(default=None, description="Enriched citation data for sources")
+    citation_warning: Optional[str] = Field(default=None, description="Warning if citations failed to load")
 
 
 class MindMapRequest(BaseModel):
@@ -407,6 +409,8 @@ def process_document_background(
     job_id: str,
     file_path: str,
     filename: str,
+    subject_id: str = "general",
+    file_content: bytes = None,
 ):
     """Background task for document processing."""
     import hashlib
@@ -423,15 +427,52 @@ def process_document_background(
         # Ingest document
         document = ingest(file_path)
         document.metadata.source = filename
-        doc_id = hashlib.sha256(filename.encode()).hexdigest()[:12]
+        doc_id = hashlib.sha256(f"{filename}_{uuid.uuid4().hex}".encode()).hexdigest()[:12]
         
         _upload_jobs[job_id]["document_id"] = doc_id
+        _upload_jobs[job_id]["progress"] = 20
+        _upload_jobs[job_id]["message"] = "Storing original document..."
+        
+        # Store the original file for source attribution
+        if file_content:
+            doc_storage = get_doc_storage()
+            try:
+                # Count pages for PDF
+                total_pages = None
+                suffix = Path(filename).suffix.lower()
+                if suffix == '.pdf':
+                    try:
+                        import fitz
+                        pdf_doc = fitz.open(file_path)
+                        total_pages = len(pdf_doc)
+                        pdf_doc.close()
+                    except Exception:
+                        pass
+                
+                stored_doc = doc_storage.store_document(
+                    subject_id=subject_id,
+                    doc_id=doc_id,
+                    filename=filename,
+                    file_content=file_content,
+                    total_pages=total_pages,
+                )
+                logger.info(f"Stored original document: {stored_doc.storage_path}")
+            except Exception as e:
+                logger.warning(f"Failed to store original document (continuing): {e}")
+        
         _upload_jobs[job_id]["progress"] = 30
         _upload_jobs[job_id]["message"] = "Chunking document..."
         
         # Chunk the document
         chunker = DocumentChunker()
         chunks = chunker.chunk(document, strategy="paragraph")
+        
+        # Enrich chunk metadata with document info for citations
+        suffix = Path(filename).suffix
+        for i, chunk in enumerate(chunks):
+            chunk.metadata.document_id = doc_id
+            chunk.metadata.source_file = filename
+            chunk.metadata.document_format = suffix.lstrip('.').lower()
         
         _upload_jobs[job_id]["chunks_created"] = len(chunks)
         _upload_jobs[job_id]["progress"] = 50
@@ -489,6 +530,7 @@ async def upload_document(
     file: UploadFile = File(...),
     background_tasks: BackgroundTasks = None,
     async_mode: bool = False,
+    subject_id: str = "general",
 ):
     """Upload and process a document (PDF, PPTX, DOCX, or image).
     
@@ -500,6 +542,7 @@ async def upload_document(
     - Text/Markdown (.txt, .md)
     
     Set async_mode=true to process in background and get a job_id for status tracking.
+    The original file is stored for source attribution and inline document viewing.
     """
     from src.ingestion import ingest, detect_format, UnsupportedFormatError
     from src.processing import DocumentChunker
@@ -514,10 +557,14 @@ async def upload_document(
     except UnsupportedFormatError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Save uploaded file temporarily
+    # Read file content for storage
+    file_content = await file.read()
+    await file.seek(0)  # Reset for temp file writing
+
+    # Save uploaded file temporarily for processing
     suffix = Path(file.filename).suffix
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        shutil.copyfileobj(file.file, tmp)
+        tmp.write(file_content)
         tmp_path = tmp.name
 
     # Async mode: process in background
@@ -538,6 +585,8 @@ async def upload_document(
             job_id,
             tmp_path,
             file.filename,
+            subject_id,
+            file_content,
         )
         
         return UploadResponse(
@@ -550,6 +599,36 @@ async def upload_document(
 
     # Sync mode: process immediately
     try:
+        import hashlib
+        
+        # Generate a document ID
+        doc_id = hashlib.sha256(f"{file.filename}_{uuid.uuid4().hex}".encode()).hexdigest()[:12]
+        
+        # Store the original file for source attribution
+        doc_storage = get_doc_storage()
+        try:
+            # Count pages for PDF
+            total_pages = None
+            if suffix.lower() == '.pdf':
+                try:
+                    import fitz
+                    pdf_doc = fitz.open(tmp_path)
+                    total_pages = len(pdf_doc)
+                    pdf_doc.close()
+                except Exception:
+                    pass
+            
+            stored_doc = doc_storage.store_document(
+                subject_id=subject_id,
+                doc_id=doc_id,
+                filename=file.filename,
+                file_content=file_content,
+                total_pages=total_pages,
+            )
+            logger.info(f"Stored original document: {stored_doc.storage_path}")
+        except Exception as e:
+            logger.warning(f"Failed to store original document (continuing): {e}")
+        
         # Ingest document
         logger.info(f"Processing uploaded file: {file.filename}")
         document = ingest(tmp_path)
@@ -557,14 +636,16 @@ async def upload_document(
         # Update the source in metadata to use the original filename
         document.metadata.source = file.filename
         
-        # Generate a document ID from the filename
-        import hashlib
-        doc_id = hashlib.sha256(file.filename.encode()).hexdigest()[:12]
-        
         # Chunk the document
         chunker = DocumentChunker()
         chunks = chunker.chunk(document, strategy="paragraph")
         logger.info(f"Created {len(chunks)} chunks from document")
+        
+        # Enrich chunk metadata with document info for citations
+        for i, chunk in enumerate(chunks):
+            chunk.metadata.document_id = doc_id
+            chunk.metadata.source_file = file.filename
+            chunk.metadata.document_format = suffix.lstrip('.').lower()
 
         # Store chunks in vector store
         components = get_components()
@@ -676,8 +757,10 @@ async def generate_quiz(request: QuizRequest):
     
     Returns MCQ, short answer, and/or true/false questions based on
     uploaded study material. Optionally scoped to a specific subject.
+    Includes source citations when available.
     """
     from src.workflows.quiz import QuizWorkflow
+    from src.services import CitationEnrichmentService
 
     components = get_components()
     subject_id = request.subject_id or "general"
@@ -703,12 +786,30 @@ async def generate_quiz(request: QuizRequest):
             question_types=request.question_types,
         )
 
+        # Convert to dicts and enrich with citations
+        questions_data = [q.model_dump() for q in questions]
+        
+        # Enrich questions with full citation data
+        citation_warning = None
+        try:
+            doc_storage = get_doc_storage()
+            enrichment_service = CitationEnrichmentService(
+                vector_store=components["vector_store"],
+                doc_storage=doc_storage,
+                subject_id=subject_id,
+            )
+            questions_data = enrichment_service.enrich_quiz_output(questions_data, subject_id=subject_id)
+        except Exception as e:
+            logger.warning(f"Citation enrichment failed (continuing without citations): {e}")
+            citation_warning = "Source citations could not be loaded. Questions are still valid."
+
         return {
             "status": "success",
             "topic": request.topic,
             "subject_id": subject_id,
-            "count": len(questions),
-            "questions": [q.model_dump() for q in questions],
+            "count": len(questions_data),
+            "questions": questions_data,
+            "citation_warning": citation_warning,
         }
 
     except ValueError as e:
@@ -723,9 +824,10 @@ async def generate_flashcards(request: FlashcardRequest):
     """Generate flashcards for a topic.
     
     Returns Q/A flashcards with hints, mnemonics, and related topics.
-    Optionally scoped to a specific subject.
+    Optionally scoped to a specific subject. Includes source citations when available.
     """
     from src.workflows.flashcards import FlashcardWorkflow
+    from src.services import CitationEnrichmentService
 
     components = get_components()
     subject_id = request.subject_id or "general"
@@ -756,12 +858,30 @@ async def generate_flashcards(request: FlashcardRequest):
         for card in cards:
             sr_scheduler.add_card(card.id)
 
+        # Convert to dicts and enrich with citations
+        cards_data = [c.model_dump() for c in cards]
+        
+        # Enrich flashcards with full citation data
+        citation_warning = None
+        try:
+            doc_storage = get_doc_storage()
+            enrichment_service = CitationEnrichmentService(
+                vector_store=components["vector_store"],
+                doc_storage=doc_storage,
+                subject_id=subject_id,
+            )
+            cards_data = enrichment_service.enrich_flashcard_output(cards_data, subject_id=subject_id)
+        except Exception as e:
+            logger.warning(f"Citation enrichment failed (continuing without citations): {e}")
+            citation_warning = "Source citations could not be loaded. Flashcards are still valid."
+
         return {
             "status": "success",
             "topic": request.topic,
             "subject_id": subject_id,
-            "count": len(cards),
-            "flashcards": [c.model_dump() for c in cards],
+            "count": len(cards_data),
+            "flashcards": cards_data,
+            "citation_warning": citation_warning,
         }
 
     except Exception as e:
@@ -775,8 +895,10 @@ async def generate_notes(request: NotesRequest):
     
     Returns hierarchical notes with subtopics, key terms, formulae,
     and mnemonics. Optionally scoped to a specific subject.
+    Includes source citations when available.
     """
     from src.workflows.revision_notes import RevisionNotesWorkflow
+    from src.services import CitationEnrichmentService
 
     components = get_components()
     subject_id = request.subject_id or "general"
@@ -795,13 +917,35 @@ async def generate_notes(request: NotesRequest):
     )
 
     try:
-        notes = workflow.generate(topic=request.topic)
+        notes, source_chunk_ids = workflow.generate(topic=request.topic)
+        
+        notes_data = notes.model_dump()
+        notes_data["source_chunk_ids"] = source_chunk_ids
+        
+        # Enrich with citations
+        citations = []
+        citation_warning = None
+        if source_chunk_ids:
+            try:
+                doc_storage = get_doc_storage()
+                enrichment_service = CitationEnrichmentService(
+                    vector_store=components["vector_store"],
+                    doc_storage=doc_storage,
+                    subject_id=subject_id,
+                )
+                citation_objs = enrichment_service.enrich_batch(source_chunk_ids, subject_id=subject_id)
+                citations = [c.to_dict() for c in citation_objs]
+            except Exception as e:
+                logger.warning(f"Citation enrichment failed (continuing without citations): {e}")
+                citation_warning = "Source citations could not be loaded. Notes are still valid."
 
         return {
             "status": "success",
             "topic": request.topic,
             "subject_id": subject_id,
-            "notes": notes.model_dump(),
+            "notes": notes_data,
+            "citations": citations,
+            "citation_warning": citation_warning,
         }
 
     except Exception as e:
@@ -941,20 +1085,42 @@ async def chat(request: ChatRequest):
     
     RAG-powered conversational tutor that answers questions based on
     uploaded study material. Maintains conversation context per session.
-    Optionally scoped to a specific subject.
+    Optionally scoped to a specific subject. Includes source citations when available.
     """
+    from src.services import CitationEnrichmentService
+    
     subject_id = request.subject_id or "general"
     session_key = f"{subject_id}:{request.session_id}" if request.session_id else None
     session_id, tutor = get_or_create_chat_session(session_key, subject_id)
 
     try:
         result = tutor.ask(request.message)
+        
+        # Enrich with citations
+        citations = None
+        citation_warning = None
+        if result.get("sources"):
+            try:
+                components = get_components()
+                doc_storage = get_doc_storage()
+                enrichment_service = CitationEnrichmentService(
+                    vector_store=components["vector_store"],
+                    doc_storage=doc_storage,
+                    subject_id=subject_id,
+                )
+                enriched = enrichment_service.enrich_chat_response(result, subject_id=subject_id)
+                citations = enriched.get("citations")
+            except Exception as e:
+                logger.warning(f"Citation enrichment failed (continuing without citations): {e}")
+                citation_warning = "Source citations could not be loaded."
 
         return ChatResponse(
             answer=result["answer"],
             sources=result["sources"],
             is_grounded=result["is_grounded"],
             session_id=session_id,
+            citations=citations,
+            citation_warning=citation_warning,
         )
 
     except Exception as e:

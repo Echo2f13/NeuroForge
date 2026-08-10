@@ -158,6 +158,9 @@ class ChunkMetadata(BaseModel):
     document_format: Optional[str] = Field(
         default=None, description="Format of source document (pdf/docx/txt)"
     )
+    document_id: Optional[str] = Field(
+        default=None, description="ID of the stored document for source attribution"
+    )
 
     def to_dict(self) -> dict:
         """Serialize to dictionary."""

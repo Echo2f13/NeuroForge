@@ -1,0 +1,38 @@
+{
+  "general": {
+    "id": "general",
+    "name": "General",
+    "description": "Default subject for uncategorized materials",
+    "color": null,
+    "icon": "\ud83d\udcda",
+    "status": "active",
+    "settings": {
+      "default_difficulty": null,
+      "default_quiz_count": 10,
+      "default_flashcard_count": 10,
+      "track_streak_separately": false
+    },
+    "is_default": true,
+    "created_at": "2026-08-08T07:08:39.312352",
+    "updated_at": "2026-08-08T07:08:39.312363",
+    "last_activity_at": null
+  },
+  "17a47caa-de04-4930-90c5-a4be068692dc": {
+    "id": "17a47caa-de04-4930-90c5-a4be068692dc",
+    "name": "kuyg",
+    "description": null,
+    "color": "#10B981",
+    "icon": "\ud83c\udf93",
+    "status": "active",
+    "settings": {
+      "default_difficulty": null,
+      "default_quiz_count": 10,
+      "default_flashcard_count": 10,
+      "track_streak_separately": false
+    },
+    "is_default": false,
+    "created_at": "2026-08-08T08:30:04.212379",
+    "updated_at": "2026-08-08T08:30:04.212410",
+    "last_activity_at": null
+  }
+}

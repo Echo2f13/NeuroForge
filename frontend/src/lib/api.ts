@@ -94,6 +94,8 @@ export interface QuizQuestion {
   explanation: string;
   topic: string;
   difficulty: string;
+  source_chunk_ids?: string[];
+  citations?: Citation[];
 }
 
 export interface Flashcard {
@@ -104,6 +106,8 @@ export interface Flashcard {
   mnemonic: string | null;
   related_topics: string[];
   difficulty: string;
+  source_chunk_ids?: string[];
+  citations?: Citation[];
 }
 
 export interface RevisionNote {
@@ -118,6 +122,8 @@ export interface RevisionNote {
   key_terms: string[];
   formulae: string[];
   mnemonics: string[];
+  source_chunk_ids?: string[];
+  citations?: Citation[];
 }
 
 export interface ChatMessage {
@@ -125,6 +131,8 @@ export interface ChatMessage {
   content: string;
   sources?: string[];
   isGrounded?: boolean;
+  citations?: Citation[];
+  citationWarning?: string | null;
 }
 
 export interface LearningProgress {
@@ -418,7 +426,7 @@ class NeuroForgeAPI {
 
   // Content Generation
   async generateQuiz(topic: string, numQuestions: number = 10, difficulty?: string, subjectId?: string) {
-    return this.request<{ status: string; topic: string; subject_id: string; count: number; questions: QuizQuestion[] }>('/quiz', {
+    return this.request<{ status: string; topic: string; subject_id: string; count: number; questions: QuizQuestion[]; citation_warning?: string | null }>('/quiz', {
       method: 'POST',
       body: JSON.stringify({
         topic,
@@ -430,7 +438,7 @@ class NeuroForgeAPI {
   }
 
   async generateFlashcards(topic: string, numCards: number = 10, difficulty?: string, subjectId?: string) {
-    return this.request<{ status: string; topic: string; subject_id: string; count: number; flashcards: Flashcard[] }>('/flashcards', {
+    return this.request<{ status: string; topic: string; subject_id: string; count: number; flashcards: Flashcard[]; citation_warning?: string | null }>('/flashcards', {
       method: 'POST',
       body: JSON.stringify({
         topic,
@@ -442,7 +450,7 @@ class NeuroForgeAPI {
   }
 
   async generateNotes(topic: string, subjectId?: string) {
-    return this.request<{ status: string; topic: string; subject_id: string; notes: RevisionNote }>('/notes', {
+    return this.request<{ status: string; topic: string; subject_id: string; notes: RevisionNote; citations?: Citation[]; citation_warning?: string | null }>('/notes', {
       method: 'POST',
       body: JSON.stringify({ 
         topic,
@@ -519,6 +527,8 @@ class NeuroForgeAPI {
       sources: string[];
       is_grounded: boolean;
       session_id: string;
+      citations?: Citation[];
+      citation_warning?: string | null;
     }>('/chat', {
       method: 'POST',
       body: JSON.stringify({ 
