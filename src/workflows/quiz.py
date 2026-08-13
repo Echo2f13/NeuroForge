@@ -135,14 +135,19 @@ class QuizWorkflow:
         """Stage 1: Retrieve relevant chunks from the knowledge base.
 
         Uses filtered_search if difficulty is provided, otherwise
-        falls back to semantic_search.
+        falls back to semantic_search. If filtered_search returns empty,
+        falls back to semantic_search as well.
         """
+        chunks = []
         try:
             if difficulty:
                 chunks = self.retriever.filtered_search(
                     query=topic, top_k=10, topic=topic, difficulty=difficulty
                 )
-            else:
+            
+            # Fall back to semantic search if filtered_search returns nothing
+            # or if no difficulty was provided
+            if not chunks:
                 chunks = self.retriever.semantic_search(query=topic, top_k=10)
         except Exception as e:
             logger.warning(f"Retrieval failed: {e}. Proceeding with empty context.")

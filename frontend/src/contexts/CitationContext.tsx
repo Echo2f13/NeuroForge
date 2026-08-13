@@ -40,6 +40,7 @@ interface CitationContextValue {
   
   // Actions
   openCitation: (citation: Citation, subjectId?: string) => Promise<void>;
+  openDocument: (subjectId: string, documentId: string, page?: number) => Promise<void>;
   closeCitation: () => void;
   setCitations: (citations: Citation[]) => void;
   clearCitations: () => void;
@@ -147,6 +148,30 @@ export function CitationProvider({
     setViewerOpen(true);
   }, [currentDocument]);
   
+  // Open a document directly (without a citation)
+  const openDocument = useCallback(async (subjectId: string, documentId: string, page: number = 1) => {
+    setActiveCitation(null);
+    setDocumentError(null);
+    setHighlightRanges([]);
+    setCurrentPage(page);
+    
+    // Load document metadata
+    if (!currentDocument || currentDocument.id !== documentId) {
+      setDocumentLoading(true);
+      try {
+        const response = await api.getDocumentMetadata(subjectId, documentId);
+        setCurrentDocument(response.document);
+      } catch (error) {
+        console.error('Failed to load document metadata:', error);
+        setDocumentError('Failed to load document');
+      } finally {
+        setDocumentLoading(false);
+      }
+    }
+    
+    setViewerOpen(true);
+  }, [currentDocument]);
+  
   // Close citation viewer
   const closeCitation = useCallback(() => {
     setViewerOpen(false);
@@ -187,6 +212,7 @@ export function CitationProvider({
     documentLoading,
     documentError,
     openCitation,
+    openDocument,
     closeCitation,
     setCitations,
     clearCitations,

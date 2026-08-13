@@ -854,3 +854,111 @@ class SubjectManager:
                 self.save_all_subject_data(subject_id)
             except Exception as e:
                 logger.warning(f"Failed to save data for subject {subject_id}: {e}")
+
+    # -------------------------------------------------------------------------
+    # Data Repair / Sync
+    # -------------------------------------------------------------------------
+
+    def repair_document_registry(self, subject_id: str) -> dict:
+        """Repair documents.json by syncing with actual files on disk.
+        
+        This scans the documents directory for stored files and ensures
+        they are properly registered in documents.json.
+        
+        Args:
+            subject_id: Subject identifier.
+            
+        Returns:
+            Dict with repair results (added, existing, errors).
+        """
+        self.get_subject(subject_id)  # Validate exists
+        
+        results = {
+            "subject_id": subject_id,
+            "added": [],
+            "existing": [],
+            "errors": [],
+        }
+        
+        # Get documents directory
+        subject_dir = self.storage.get_subject_dir(subject_id)
+        docs_dir = subject_dir / "documents"
+        
+        if not docs_dir.exists():
+            return results
+        
+        # Load existing registered documents
+        docs_path = self.storage.get_documents_path(subject_id)
+        existing_docs = {}
+        if docs_path.exists():
+            try:
+                docs = json.loads(docs_path.read_text(encoding="utf-8"))
+                existing_docs = {d.get("id"): d for d in docs}
+            except json.JSONDecodeError:
+                pass
+        
+        # Scan all document folders
+        for doc_folder in docs_dir.iterdir():
+            if not doc_folder.is_dir():
+                continue
+            
+            doc_id = doc_folder.name
+            metadata_file = doc_folder / "metadata.json"
+            
+            if not metadata_file.exists():
+                results["errors"].append(f"No metadata for {doc_id}")
+                continue
+            
+            # Check if already registered
+            if doc_id in existing_docs:
+                results["existing"].append(doc_id)
+                continue
+            
+            # Read metadata and register
+            try:
+                metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
+                
+                doc = SubjectDocument(
+                    id=doc_id,
+                    subject_id=subject_id,
+                    filename=metadata.get("filename", "unknown"),
+                    file_type=metadata.get("format", "pdf"),
+                    chunk_count=0,  # Unknown for old docs
+                    concept_count=0,  # Unknown for old docs
+                    file_size_bytes=metadata.get("file_size"),
+                )
+                
+                # Add to existing docs
+                existing_docs[doc_id] = doc.to_dict()
+                results["added"].append(doc_id)
+                
+            except Exception as e:
+                results["errors"].append(f"Error processing {doc_id}: {e}")
+        
+        # Save updated documents list
+        docs_list = list(existing_docs.values())
+        docs_path.write_text(json.dumps(docs_list, indent=2), encoding="utf-8")
+        
+        logger.info(
+            f"Repaired document registry for {subject_id}: "
+            f"added={len(results['added'])}, existing={len(results['existing'])}, "
+            f"errors={len(results['errors'])}"
+        )
+        
+        return results
+
+    def repair_all_document_registries(self) -> dict:
+        """Repair document registries for all subjects.
+        
+        Returns:
+            Dict with results for each subject.
+        """
+        all_results = {}
+        
+        for subject_id in self._subjects:
+            try:
+                all_results[subject_id] = self.repair_document_registry(subject_id)
+            except Exception as e:
+                all_results[subject_id] = {"error": str(e)}
+        
+        return all_results
