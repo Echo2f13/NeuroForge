@@ -9,14 +9,15 @@ import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { useCitation } from '@/contexts/CitationContext';
 
 interface Document {
   id: string;
   filename: string;
   file_type: string;
   upload_date: string;
-  chunks_count: number;
-  concepts_count: number;
+  chunk_count: number;
+  concept_count: number;
 }
 
 interface DocumentsPanelProps {
@@ -215,6 +216,7 @@ export function DocumentsPanel({
                   key={doc.id} 
                   document={doc} 
                   color={subjectColor}
+                  subjectId={subjectId}
                 />
               ))}
             </div>
@@ -226,7 +228,9 @@ export function DocumentsPanel({
 }
 
 // Document Item Component
-function DocumentItem({ document, color }: { document: Document; color: string }) {
+function DocumentItem({ document, color, subjectId }: { document: Document; color: string; subjectId: string }) {
+  const { openDocument } = useCitation();
+  
   const fileTypeIcons: Record<string, string> = {
     pdf: '📕',
     pptx: '📊',
@@ -239,6 +243,10 @@ function DocumentItem({ document, color }: { document: Document; color: string }
 
   const icon = fileTypeIcons[document.file_type] || '📄';
   const date = new Date(document.upload_date).toLocaleDateString();
+
+  const handleViewDocument = () => {
+    openDocument(subjectId, document.id);
+  };
 
   return (
     <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
@@ -253,11 +261,12 @@ function DocumentItem({ document, color }: { document: Document; color: string }
           {document.filename}
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          {date} • {document.chunks_count} chunks • {document.concepts_count} concepts
+          {date} • {document.chunk_count} chunks • {document.concept_count} concepts
         </p>
       </div>
       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
         <button 
+          onClick={handleViewDocument}
           className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           title="View document"
         >

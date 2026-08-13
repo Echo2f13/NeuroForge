@@ -87,6 +87,15 @@ async def lifespan(app: FastAPI):
     # Initialize subject manager (NEW)
     _subject_manager = SubjectManager(data_dir="./data")
     logger.info(f"Subject manager initialized with {len(_subject_manager._subjects)} subjects")
+    
+    # Repair document registries to sync any orphaned documents
+    try:
+        repair_results = _subject_manager.repair_all_document_registries()
+        total_added = sum(len(r.get("added", [])) for r in repair_results.values() if isinstance(r, dict))
+        if total_added > 0:
+            logger.info(f"Document repair: registered {total_added} previously untracked documents")
+    except Exception as e:
+        logger.warning(f"Document registry repair failed: {e}")
 
     # Initialize core components
     _llm_client = LLMClient()
@@ -440,6 +449,150 @@ async def get_stats():
     }
 
 
+@app.post("/admin/repair-documents", tags=["Admin"])
+async def repair_document_registries():
+    """Repair document registries by syncing with files on disk.
+    
+    This scans document folders for all subjects and ensures all stored
+    documents are properly registered in their documents.json files.
+    Useful for fixing documents that were uploaded before the registration
+    system was implemented.
+    
+    Returns:
+        Results for each subject showing added, existing, and error counts.
+    """
+    components = get_components()
+    subject_manager = components["subject_manager"]
+    
+    results = subject_manager.repair_all_document_registries()
+    
+    # Calculate totals
+    total_added = sum(len(r.get("added", [])) for r in results.values() if isinstance(r, dict))
+    total_errors = sum(len(r.get("errors", [])) for r in results.values() if isinstance(r, dict))
+    
+    return {
+        "status": "success",
+        "message": f"Repair completed. Added {total_added} documents, {total_errors} errors.",
+        "results": results,
+    }
+
+
+@app.post("/admin/reindex-documents", tags=["Admin"])
+async def reindex_documents(subject_id: Optional[str] = None, background_tasks: BackgroundTasks = None):
+    """Re-index all stored documents to subject-scoped vector store.
+    
+    This re-processes all original documents stored on disk and adds their
+    chunks to the subject-scoped vector store. Use this to migrate from
+    the old global vector store to subject-isolated collections.
+    
+    Args:
+        subject_id: Specific subject to re-index (or all if None).
+        
+    Returns:
+        Results showing documents processed per subject.
+    """
+    from src.ingestion import ingest
+    from src.processing import DocumentChunker
+    from src.extraction.robust_extractor import RobustExtractor
+    
+    components = get_components()
+    subject_manager = components["subject_manager"]
+    subject_vector_store = subject_manager.get_subject_vector_store()
+    
+    results = {}
+    subjects_to_process = [subject_id] if subject_id else list(subject_manager._subjects.keys())
+    
+    for sid in subjects_to_process:
+        subject_results = {
+            "documents_processed": 0,
+            "chunks_created": 0,
+            "concepts_extracted": 0,
+            "errors": [],
+            "document_chunks": {},  # Track chunk count per document
+        }
+        
+        # Get documents folder
+        subject_dir = subject_manager.storage.get_subject_dir(sid)
+        docs_dir = subject_dir / "documents"
+        
+        if not docs_dir.exists():
+            results[sid] = subject_results
+            continue
+        
+        # Process each document folder
+        for doc_folder in docs_dir.iterdir():
+            if not doc_folder.is_dir():
+                continue
+            
+            doc_id = doc_folder.name
+            original_file = doc_folder / "original.pdf"
+            metadata_file = doc_folder / "metadata.json"
+            
+            if not original_file.exists() or not metadata_file.exists():
+                subject_results["errors"].append(f"Missing files for {doc_id}")
+                continue
+            
+            try:
+                # Load metadata
+                import json
+                metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
+                filename = metadata.get("filename", "unknown.pdf")
+                
+                # Ingest document
+                document = ingest(str(original_file))
+                document.metadata.source = filename
+                
+                # Chunk document
+                chunker = DocumentChunker()
+                chunks = chunker.chunk(document, strategy="paragraph")
+                
+                # Enrich chunk metadata
+                suffix = Path(filename).suffix
+                for chunk in chunks:
+                    chunk.metadata.document_id = doc_id
+                    chunk.metadata.source_file = filename
+                    chunk.metadata.document_format = suffix.lstrip('.').lower()
+                
+                # Add to subject-scoped vector store
+                subject_vector_store.add_chunks(sid, chunks)
+                
+                subject_results["documents_processed"] += 1
+                subject_results["chunks_created"] += len(chunks)
+                subject_results["document_chunks"][doc_id] = len(chunks)
+                
+                logger.info(f"Re-indexed {filename} ({doc_id}) for subject {sid}: {len(chunks)} chunks")
+                
+            except Exception as e:
+                subject_results["errors"].append(f"Error processing {doc_id}: {str(e)}")
+                logger.error(f"Failed to re-index {doc_id}: {e}")
+        
+        # Update documents.json with correct chunk counts per document
+        docs_path = subject_manager.storage.get_documents_path(sid)
+        if docs_path.exists() and subject_results["document_chunks"]:
+            try:
+                docs = json.loads(docs_path.read_text(encoding="utf-8"))
+                # Update chunk_count for each processed document
+                for doc in docs:
+                    doc_id = doc.get("id")
+                    if doc_id and doc_id in subject_results["document_chunks"]:
+                        doc["chunk_count"] = subject_results["document_chunks"][doc_id]
+                docs_path.write_text(json.dumps(docs, indent=2), encoding="utf-8")
+                logger.info(f"Updated chunk counts in documents.json for subject {sid}")
+            except Exception as e:
+                logger.warning(f"Failed to update documents.json for {sid}: {e}")
+        
+        results[sid] = subject_results
+    
+    total_docs = sum(r["documents_processed"] for r in results.values())
+    total_chunks = sum(r["chunks_created"] for r in results.values())
+    
+    return {
+        "status": "success",
+        "message": f"Re-indexed {total_docs} documents, created {total_chunks} chunks",
+        "results": results,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Endpoints: Document Ingestion
 # ---------------------------------------------------------------------------
@@ -533,16 +686,20 @@ def process_document_background(
         _upload_jobs[job_id]["progress"] = 50
         _upload_jobs[job_id]["message"] = f"Created {len(chunks)} chunks. Storing..."
         
-        # Store chunks
+        # Store chunks in SUBJECT-SCOPED vector store (this is the critical fix!)
         components = get_components()
-        components["vector_store"].add_chunks(chunks)
+        subject_manager = components["subject_manager"]
+        subject_vector_store = subject_manager.get_subject_vector_store()
+        subject_vector_store.add_chunks(subject_id, chunks)
+        logger.info(f"Stored {len(chunks)} chunks in subject {subject_id}")
         
         _upload_jobs[job_id]["progress"] = 60
         _upload_jobs[job_id]["status"] = "extracting"
         _upload_jobs[job_id]["message"] = "Extracting knowledge concepts..."
         
         # Extract knowledge using robust extractor
-        # This will use Ollama (qwen2.5-coder:7b) if configured for best quality
+        # This will use the default (Groq) for best quality
+        concepts_extracted = 0
         try:
             extractor = RobustExtractor(llm_client=components["llm_client"])
             
@@ -557,18 +714,43 @@ def process_document_background(
             _upload_jobs[job_id]["message"] = f"Extracted {len(knowledge.concepts)} concepts using {provider_name}. Saving..."
             
             if knowledge.concepts:
-                components["vector_store"].add_concepts(knowledge.concepts)
-                components["knowledge_graph"].add_concepts(knowledge.concepts)
-                _upload_jobs[job_id]["concepts_extracted"] = len(knowledge.concepts)
+                # Store concepts in subject-scoped vector store
+                subject_vector_store.add_concepts(subject_id, knowledge.concepts)
+                # Also add to subject's knowledge graph
+                subject_knowledge_graph = subject_manager.get_subject_knowledge_graph(subject_id)
+                subject_knowledge_graph.add_concepts(knowledge.concepts)
+                concepts_extracted = len(knowledge.concepts)
+                _upload_jobs[job_id]["concepts_extracted"] = concepts_extracted
             
             if knowledge.relationships:
-                components["knowledge_graph"].add_relationships(knowledge.relationships)
+                subject_knowledge_graph = subject_manager.get_subject_knowledge_graph(subject_id)
+                subject_knowledge_graph.add_relationships(knowledge.relationships)
             
-            components["knowledge_graph"].save("./knowledge_graph.json")
+            # Save subject's knowledge graph
+            subject_manager.save_subject_knowledge_graph(subject_id)
             
         except Exception as e:
             logger.warning(f"Knowledge extraction failed: {e}")
             _upload_jobs[job_id]["message"] = f"Chunks stored. Concept extraction partial: {e}"
+        
+        # Register document with subject manager (THIS WAS MISSING!)
+        _upload_jobs[job_id]["progress"] = 90
+        _upload_jobs[job_id]["message"] = "Registering document..."
+        try:
+            subject_manager = components["subject_manager"]
+            suffix = Path(filename).suffix
+            subject_manager.add_document(
+                subject_id=subject_id,
+                doc_id=doc_id,
+                filename=filename,
+                file_type=suffix.lstrip('.').lower(),
+                chunk_count=len(chunks),
+                concept_count=concepts_extracted,
+                file_size_bytes=len(file_content) if file_content else None,
+            )
+            logger.info(f"Registered document {doc_id} with subject {subject_id}")
+        except Exception as e:
+            logger.warning(f"Failed to register document with subject manager: {e}")
         
         # Complete
         _upload_jobs[job_id]["status"] = "completed"
@@ -709,12 +891,14 @@ async def upload_document(
             chunk.metadata.source_file = file.filename
             chunk.metadata.document_format = suffix.lstrip('.').lower()
 
-        # Store chunks in vector store
+        # Store chunks in SUBJECT-SCOPED vector store (this is the critical fix!)
         components = get_components()
-        components["vector_store"].add_chunks(chunks)
+        subject_manager = components["subject_manager"]
+        subject_vector_store = subject_manager.get_subject_vector_store()
+        subject_vector_store.add_chunks(subject_id, chunks)
+        logger.info(f"Stored {len(chunks)} chunks in subject {subject_id}")
 
         # Extract knowledge using robust extractor
-        # This will use Ollama (qwen2.5-coder:7b) if configured for best quality
         concepts_extracted = 0
         extraction_provider = "unknown"
         try:
@@ -725,20 +909,40 @@ async def upload_document(
             knowledge = extractor.extract(chunks)
             
             if knowledge.concepts:
-                components["vector_store"].add_concepts(knowledge.concepts)
-                components["knowledge_graph"].add_concepts(knowledge.concepts)
+                # Store concepts in subject-scoped vector store
+                subject_vector_store.add_concepts(subject_id, knowledge.concepts)
+                # Also add to subject's knowledge graph
+                subject_knowledge_graph = subject_manager.get_subject_knowledge_graph(subject_id)
+                subject_knowledge_graph.add_concepts(knowledge.concepts)
                 concepts_extracted = len(knowledge.concepts)
                 
             if knowledge.relationships:
-                components["knowledge_graph"].add_relationships(knowledge.relationships)
+                subject_knowledge_graph = subject_manager.get_subject_knowledge_graph(subject_id)
+                subject_knowledge_graph.add_relationships(knowledge.relationships)
                 
-            components["knowledge_graph"].save("./knowledge_graph.json")
+            # Save subject's knowledge graph
+            subject_manager.save_subject_knowledge_graph(subject_id)
             logger.info(f"Extracted {concepts_extracted} concepts and {len(knowledge.relationships)} relationships using {extraction_provider}")
             
         except Exception as e:
             logger.warning(f"Knowledge extraction partial failure: {e}")
             import traceback
             logger.warning(traceback.format_exc())
+
+        # Register document with subject manager (THIS WAS MISSING!)
+        try:
+            subject_manager.add_document(
+                subject_id=subject_id,
+                doc_id=doc_id,
+                filename=file.filename,
+                file_type=suffix.lstrip('.').lower(),
+                chunk_count=len(chunks),
+                concept_count=concepts_extracted,
+                file_size_bytes=len(file_content),
+            )
+            logger.info(f"Registered document {doc_id} with subject {subject_id}")
+        except Exception as e:
+            logger.warning(f"Failed to register document with subject manager: {e}")
 
         return UploadResponse(
             status="success",
@@ -777,10 +981,11 @@ async def get_upload_status(job_id: str):
 
 
 @app.post("/upload/youtube", tags=["Ingestion"])
-async def upload_youtube(url: str = Form(...)):
+async def upload_youtube(url: str = Form(...), subject_id: str = Form(default="general")):
     """Process a YouTube video (extracts transcript).
     
     Provide a YouTube URL to extract and process the video transcript.
+    Optionally specify a subject_id to store in that subject's collection.
     """
     from src.ingestion import ingest, detect_format, UnsupportedFormatError
     from src.processing import DocumentChunker
@@ -797,8 +1002,12 @@ async def upload_youtube(url: str = Form(...)):
         chunker = DocumentChunker()
         chunks = chunker.chunk(document)
         
+        # Store chunks in SUBJECT-SCOPED vector store
         components = get_components()
-        components["vector_store"].add_chunks(chunks)
+        subject_manager = components["subject_manager"]
+        subject_vector_store = subject_manager.get_subject_vector_store()
+        subject_vector_store.add_chunks(subject_id, chunks)
+        logger.info(f"Stored {len(chunks)} chunks in subject {subject_id}")
 
         return {
             "status": "success",
@@ -806,6 +1015,7 @@ async def upload_youtube(url: str = Form(...)):
             "document_id": document.id,
             "title": document.metadata.get("title", "Unknown"),
             "chunks_created": len(chunks),
+            "subject_id": subject_id,
         }
 
     except Exception as e:

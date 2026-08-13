@@ -144,6 +144,7 @@ class FlashcardWorkflow:
         """Step 1: Retrieve relevant chunks from the knowledge base.
 
         Uses filtered search if difficulty is specified, otherwise
+        falls back to semantic search. If filtered search returns nothing,
         falls back to semantic search.
 
         Args:
@@ -153,11 +154,15 @@ class FlashcardWorkflow:
         Returns:
             List of chunk dicts with id, content, score, metadata.
         """
+        results = []
         if difficulty:
             results = self.retriever.filtered_search(
                 query=topic, top_k=10, difficulty=difficulty
             )
-        else:
+        
+        # Fall back to semantic search if filtered_search returns nothing
+        # or if no difficulty was provided
+        if not results:
             results = self.retriever.semantic_search(query=topic, top_k=10)
 
         return results

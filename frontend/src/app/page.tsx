@@ -118,10 +118,10 @@ export default function Home() {
   
   // Load subject data when active subject changes
   useEffect(() => {
-    if (activeSubjectId) {
+    if (activeSubject) {
       loadSubjectData();
     }
-  }, [activeSubjectId]);
+  }, [activeSubject]);
 
   // ============================================================================
   // Data Loading Functions
@@ -129,23 +129,42 @@ export default function Home() {
 
   const loadSubjectData = async () => {
     try {
-      // Load subject details if not general
-      if (activeSubjectId !== 'general') {
-        const subjectData = await api.getSubject(activeSubjectId);
-        // Documents would come from a separate API call or the subject context
-        // For now, we'll use an empty array as documents are loaded separately
-        setSubjectDocuments([]);
+      // The activeSubject from context is a SubjectSummary which already has the stats
+      // We just need to map those to our stats format
+      if (activeSubject) {
+        setSubjectStats({
+          documents: (activeSubject as any).document_count || 0,
+          quizzes: (activeSubject as any).quiz_count || 0,
+          mastery: Math.round((activeSubject as any).mastery_percent || 0),
+          streak: 0, // Streak not tracked per-subject currently
+        });
+        
+        // Fetch the actual documents for this subject
+        try {
+          const docsResponse = await api.getSubjectDocuments(activeSubjectId);
+          // Map the API response to the format expected by DocumentsPanel
+          const mappedDocs = docsResponse.documents.map(doc => ({
+            id: doc.id,
+            filename: doc.filename,
+            file_type: doc.file_type,
+            upload_date: doc.upload_date,
+            chunk_count: doc.chunk_count,
+            concept_count: doc.concept_count,
+          }));
+          setSubjectDocuments(mappedDocs);
+        } catch (err) {
+          console.error('Failed to load subject documents:', err);
+          setSubjectDocuments([]);
+        }
       } else {
+        setSubjectStats({
+          documents: 0,
+          quizzes: 0,
+          mastery: 0,
+          streak: 0,
+        });
         setSubjectDocuments([]);
       }
-      
-      // Calculate stats (simplified - in real app would come from API)
-      setSubjectStats({
-        documents: subjectDocuments.length,
-        quizzes: 0,
-        mastery: 0,
-        streak: 0,
-      });
     } catch (err) {
       console.error('Failed to load subject data:', err);
     }
@@ -336,6 +355,12 @@ export default function Home() {
   const renderFeatureContent = () => {
     const subjectColor = activeSubject?.color || '#6366f1';
     
+    // Handler for when a document is uploaded - refresh both documents and subject list
+    const handleDocumentUploaded = async () => {
+      await loadSubjectData();
+      await loadSubjects(); // Refresh sidebar stats
+    };
+    
     switch (activeFeatureTab) {
       case 'documents':
         return (
@@ -344,7 +369,7 @@ export default function Home() {
             subjectName={activeSubject?.name || 'General'}
             subjectColor={subjectColor}
             documents={subjectDocuments}
-            onDocumentUploaded={loadSubjectData}
+            onDocumentUploaded={handleDocumentUploaded}
             loading={loading}
           />
         );
@@ -571,7 +596,10 @@ export default function Home() {
                       subjectName={activeSubject?.name || 'General'}
                       subjectColor={activeSubject?.color || '#6366f1'}
                       documents={[]}
-                      onDocumentUploaded={loadSubjectData}
+                      onDocumentUploaded={async () => {
+                        await loadSubjectData();
+                        await loadSubjects();
+                      }}
                     />
                   </CardContent>
                 </Card>
