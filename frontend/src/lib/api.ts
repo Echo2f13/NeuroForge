@@ -55,7 +55,7 @@ export interface SubjectDocument {
   chunk_count: number;
   concept_count: number;
   file_size_bytes: number | null;
-  uploaded_at: string;
+  upload_date: string;  // When the document was uploaded
 }
 
 export interface SubjectStats {
