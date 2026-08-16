@@ -48,7 +48,7 @@ export function QuizSession({ questions, subjectId, onComplete }: QuizSessionPro
     if (answer === currentQuestion.correct_answer) {
       setScore(prev => prev + 1);
     }
-  }, [showExplanation, currentQuestion?.correct_answer]);
+  }, [showExplanation, currentQuestion]);
 
   const nextQuestion = useCallback(() => {
     if (currentIndex < questions.length - 1) {
