@@ -147,7 +147,7 @@ export default function Home() {
             id: doc.id,
             filename: doc.filename,
             file_type: doc.file_type,
-            upload_date: doc.upload_date,
+            upload_date: doc.uploaded_at,
             chunk_count: doc.chunk_count,
             concept_count: doc.concept_count,
           }));
