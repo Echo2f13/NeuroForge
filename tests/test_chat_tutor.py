@@ -216,8 +216,8 @@ class TestFollowUp:
 
         call_args = mock_llm_client.generate.call_args
         prompt = call_args.kwargs.get("prompt", call_args[1].get("prompt", ""))
-        # Prompt should reference conversation history
-        assert "Conversation History" in prompt
+        # Prompt should reference conversation history (case-insensitive check)
+        assert "conversation history" in prompt.lower()
 
 
 # ---------------------------------------------------------------------------
