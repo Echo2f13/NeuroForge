@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react';
 import { UploadStatus } from '@/lib/api';
 import api from '@/lib/api';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
