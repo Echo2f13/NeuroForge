@@ -10,14 +10,13 @@ from unittest.mock import patch
 
 import pytest
 
-from models.document import Document, DocumentMetadata, InputFormat, Section
+from models.document import Document, DocumentMetadata, InputFormat
 from src.ingestion.ingest import (
     IngestionError,
     UnsupportedFormatError,
     detect_format,
     ingest,
 )
-
 
 # ---------------------------------------------------------------------------
 # detect_format() tests

@@ -7,9 +7,14 @@ import hashlib
 import pytest
 import tiktoken
 
-from models import Chunk, ChunkMetadata, Document, DocumentMetadata, InputFormat, Section
+from models import (
+    Chunk,
+    Document,
+    DocumentMetadata,
+    InputFormat,
+    Section,
+)
 from src.processing.chunking import DocumentChunker
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -201,7 +206,7 @@ class TestChunkByTokens:
             tokens_b = encoding.encode(chunks[i + 1])
             # The last `overlap` tokens of chunk A should match
             # the first `overlap` tokens of chunk B
-            overlap_a = tokens_a[-chunker.overlap:]
+            overlap_a = tokens_a[-chunker.overlap :]
             overlap_b = tokens_b[: chunker.overlap]
             assert overlap_a == overlap_b
 
@@ -315,9 +320,9 @@ class TestChunkMetadata:
 
     def test_document_id_is_source_hash(self, chunker, simple_document):
         chunks = chunker.chunk(simple_document)
-        expected_hash = hashlib.sha256(
-            simple_document.metadata.source.encode("utf-8")
-        ).hexdigest()[:8]
+        expected_hash = hashlib.sha256(simple_document.metadata.source.encode("utf-8")).hexdigest()[
+            :8
+        ]
         for chunk in chunks:
             assert chunk.document_id == expected_hash
 

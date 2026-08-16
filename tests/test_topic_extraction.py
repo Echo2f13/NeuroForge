@@ -8,8 +8,7 @@ Tests the TopicExtractor class with mocked LLM calls to verify:
 - Full extraction pipeline
 """
 
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -22,8 +21,7 @@ from src.extraction.topics import (
     TopicExtractor,
     TopicListResponse,
 )
-from src.llm import LLMClient, LLMProvider
-
+from src.llm import LLMClient
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -90,9 +88,7 @@ class TestExtractTopics:
     def test_extract_topics_single_batch(self, mock_llm_client, sample_chunks):
         """Topics are extracted from chunks in a single batch."""
         mock_llm_client.generate_json.return_value = (
-            TopicListResponse(
-                topics=["Machine Learning", "Neural Networks", "Optimization"]
-            ),
+            TopicListResponse(topics=["Machine Learning", "Neural Networks", "Optimization"]),
             {"provider": "groq", "total_tokens": 100},
         )
 
@@ -276,7 +272,9 @@ class TestDeduplicateConcepts:
         """Concepts with same name (different case) are merged."""
         concepts = [
             make_concept("Machine Learning", definition="Short def."),
-            make_concept("machine learning", definition="A longer and more complete definition here."),
+            make_concept(
+                "machine learning", definition="A longer and more complete definition here."
+            ),
         ]
 
         extractor = TopicExtractor(llm_client=mock_llm_client)

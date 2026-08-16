@@ -16,7 +16,6 @@ Usage:
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -82,13 +81,9 @@ def _get_list_indent_level(paragraph: Paragraph) -> int:
     # Try to get indent level from numbering properties
     pPr = paragraph._p.pPr
     if pPr is not None:
-        numPr = pPr.find(
-            ".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ilvl"
-        )
+        numPr = pPr.find(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ilvl")
         if numPr is not None:
-            val = numPr.get(
-                "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"
-            )
+            val = numPr.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
             if val is not None:
                 try:
                     return int(val)
@@ -117,9 +112,7 @@ def _is_list_paragraph(paragraph: Paragraph) -> bool:
     # Check XML numbering properties
     pPr = paragraph._p.pPr
     if pPr is not None:
-        numPr = pPr.find(
-            ".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numId"
-        )
+        numPr = pPr.find(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numId")
         if numPr is not None:
             return True
 

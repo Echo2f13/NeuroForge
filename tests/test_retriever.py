@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import json
-
 import chromadb
 import pytest
 
 from models import Chunk, ChunkMetadata, Concept, ConceptRelationship, Difficulty
 from src.retrieval import Retriever
 from src.store import KnowledgeGraph, VectorStore
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -271,16 +268,12 @@ class TestFilteredSearch:
     """Tests for filtered_search method."""
 
     def test_filter_by_difficulty(self, populated_retriever):
-        results = populated_retriever.filtered_search(
-            "learning concepts", difficulty="easy"
-        )
+        results = populated_retriever.filtered_search("learning concepts", difficulty="easy")
         # Should find chunks linked to easy concepts
         assert isinstance(results, list)
 
     def test_filter_by_topic(self, populated_retriever):
-        results = populated_retriever.filtered_search(
-            "deep learning", topic="deep_learning"
-        )
+        results = populated_retriever.filtered_search("deep learning", topic="deep_learning")
         assert isinstance(results, list)
 
     def test_no_filters_returns_results(self, populated_retriever):
@@ -289,9 +282,7 @@ class TestFilteredSearch:
         assert len(results) > 0
 
     def test_result_has_required_keys(self, populated_retriever):
-        results = populated_retriever.filtered_search(
-            "neural networks", difficulty="medium"
-        )
+        results = populated_retriever.filtered_search("neural networks", difficulty="medium")
         for result in results:
             assert "id" in result
             assert "content" in result

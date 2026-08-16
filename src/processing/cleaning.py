@@ -32,27 +32,27 @@ class TextCleaner:
 
     # Page number patterns (standalone lines)
     PAGE_NUMBER_PATTERNS = [
-        re.compile(r"^\s*-\s*\d+\s*-\s*$", re.MULTILINE),        # - 3 -
+        re.compile(r"^\s*-\s*\d+\s*-\s*$", re.MULTILINE),  # - 3 -
         re.compile(r"^\s*Page\s+\d+\s*$", re.MULTILINE | re.IGNORECASE),  # Page 4
-        re.compile(r"^\s*p\.\s*\d+\s*$", re.MULTILINE | re.IGNORECASE),   # p. 4
-        re.compile(r"^\s*\d+\s*$", re.MULTILINE),                  # standalone number
-        re.compile(r"^\s*\[\s*\d+\s*\]\s*$", re.MULTILINE),       # [4]
-        re.compile(r"^\s*\d+\s*/\s*\d+\s*$", re.MULTILINE),       # 4/10
+        re.compile(r"^\s*p\.\s*\d+\s*$", re.MULTILINE | re.IGNORECASE),  # p. 4
+        re.compile(r"^\s*\d+\s*$", re.MULTILINE),  # standalone number
+        re.compile(r"^\s*\[\s*\d+\s*\]\s*$", re.MULTILINE),  # [4]
+        re.compile(r"^\s*\d+\s*/\s*\d+\s*$", re.MULTILINE),  # 4/10
     ]
 
     # Common OCR ligature and misread fixes
     OCR_REPLACEMENTS = {
-        "\ufb01": "fi",   # fi ligature
-        "\ufb02": "fl",   # fl ligature
-        "\ufb00": "ff",   # ff ligature
+        "\ufb01": "fi",  # fi ligature
+        "\ufb02": "fl",  # fl ligature
+        "\ufb00": "ff",  # ff ligature
         "\ufb03": "ffi",  # ffi ligature
         "\ufb04": "ffl",  # ffl ligature
-        "\u2018": "'",    # left single quote
-        "\u2019": "'",    # right single quote
-        "\u201c": '"',    # left double quote
-        "\u201d": '"',    # right double quote
-        "\u2013": "-",    # en dash
-        "\u2014": "-",    # em dash
+        "\u2018": "'",  # left single quote
+        "\u2019": "'",  # right single quote
+        "\u201c": '"',  # left double quote
+        "\u201d": '"',  # right double quote
+        "\u2013": "-",  # en dash
+        "\u2014": "-",  # em dash
         "\u2026": "...",  # ellipsis
     }
 
@@ -64,9 +64,7 @@ class TextCleaner:
     ]
 
     # Control characters to remove (preserve \n, \r, \t, \f)
-    CONTROL_CHAR_PATTERN = re.compile(
-        r"[\x00-\x08\x0b\x0e-\x1f\x7f-\x9f]"
-    )
+    CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x08\x0b\x0e-\x1f\x7f-\x9f]")
 
     # Excessive special character sequences (3+ of same special char)
     EXCESSIVE_SPECIAL_PATTERN = re.compile(r"([^\w\s\-\.\,\;\:\!\?\'\"\(\)\[\]\{\}\/\\•·–—])\1{2,}")

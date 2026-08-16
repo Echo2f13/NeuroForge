@@ -4,7 +4,7 @@ Tests rule-based and LLM-based intent classification, parameter extraction,
 and workflow routing.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -12,10 +12,7 @@ from src.planner import IntentRouter
 from src.planner.router import (
     IntentResult,
     _extract_topic,
-    INTENT_KEYWORDS,
-    DIFFICULTY_MAP,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -177,9 +174,7 @@ class TestParameterExtraction:
         assert "marks" not in result["parameters"]
 
     def test_multiple_parameters_extracted(self, router):
-        result = router.classify_intent_rules(
-            "Generate 5 easy questions on photosynthesis"
-        )
+        result = router.classify_intent_rules("Generate 5 easy questions on photosynthesis")
         assert result["parameters"]["difficulty"] == "easy"
         assert result["parameters"]["count"] == 5
         assert "photosynthesis" in result["parameters"].get("topic", "").lower()

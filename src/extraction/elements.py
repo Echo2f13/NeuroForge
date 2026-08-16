@@ -48,9 +48,7 @@ class ExampleItem(BaseModel):
 
     title: str = Field(..., description="Short title for the example")
     content: str = Field(..., description="Full example content")
-    related_concepts: list[str] = Field(
-        default_factory=list, description="Related concept names"
-    )
+    related_concepts: list[str] = Field(default_factory=list, description="Related concept names")
 
 
 class ExampleListResponse(BaseModel):
@@ -72,9 +70,7 @@ class DateItem(BaseModel):
 class DateListResponse(BaseModel):
     """LLM response model for date extraction."""
 
-    dates: list[DateItem] = Field(
-        default_factory=list, description="List of extracted dates"
-    )
+    dates: list[DateItem] = Field(default_factory=list, description="List of extracted dates")
 
 
 class PersonItem(BaseModel):
@@ -88,9 +84,7 @@ class PersonItem(BaseModel):
 class PersonListResponse(BaseModel):
     """LLM response model for people extraction."""
 
-    people: list[PersonItem] = Field(
-        default_factory=list, description="List of extracted people"
-    )
+    people: list[PersonItem] = Field(default_factory=list, description="List of extracted people")
 
 
 # ---------------------------------------------------------------------------
@@ -241,9 +235,7 @@ class ElementExtractor:
                 for item in result.formulae:
                     # Determine source chunk by checking which chunk text
                     # contains the formula expression
-                    source_id = self._find_source_chunk(
-                        item.expression, batch, chunk_ids
-                    )
+                    source_id = self._find_source_chunk(item.expression, batch, chunk_ids)
                     all_formulae.append(
                         Formula(
                             expression=item.expression,
@@ -289,9 +281,7 @@ class ElementExtractor:
                     max_tokens=4096,
                 )
                 for item in result.examples:
-                    source_id = self._find_source_chunk(
-                        item.content, batch, chunk_ids
-                    )
+                    source_id = self._find_source_chunk(item.content, batch, chunk_ids)
                     all_examples.append(
                         Example(
                             title=item.title,
@@ -337,9 +327,7 @@ class ElementExtractor:
                     max_tokens=4096,
                 )
                 for item in result.dates:
-                    source_id = self._find_source_chunk(
-                        item.date, batch, chunk_ids
-                    )
+                    source_id = self._find_source_chunk(item.date, batch, chunk_ids)
                     all_dates.append(
                         KeyDate(
                             date=item.date,
@@ -385,9 +373,7 @@ class ElementExtractor:
                     max_tokens=4096,
                 )
                 for item in result.people:
-                    source_id = self._find_source_chunk(
-                        item.name, batch, chunk_ids
-                    )
+                    source_id = self._find_source_chunk(item.name, batch, chunk_ids)
                     all_people.append(
                         KeyPerson(
                             name=item.name,

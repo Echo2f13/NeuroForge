@@ -87,7 +87,7 @@ def extract_video_id(url: str) -> str:
         path_patterns = ("/embed/", "/v/", "/shorts/", "/live/")
         for pattern in path_patterns:
             if parsed.path.startswith(pattern):
-                video_id = parsed.path[len(pattern):].split("/")[0]
+                video_id = parsed.path[len(pattern) :].split("/")[0]
                 if video_id:
                     return video_id
 
@@ -152,9 +152,7 @@ def _group_transcript_into_sections(
             )
             content = " ".join(current_texts).strip()
             if content:
-                sections.append(
-                    Section(heading=heading, content=content, level=2)
-                )
+                sections.append(Section(heading=heading, content=content, level=2))
             current_texts = []
             section_start_time = current_boundary
             # Advance boundary to cover the current snippet
@@ -218,9 +216,7 @@ def extract_youtube(url: str) -> Document:
             transcript = transcript_list.find_manually_created_transcript(["en"])
             fetched_transcript = transcript.fetch()
             is_generated = False
-            logger.info(
-                "Found manual English transcript for video %s", video_id
-            )
+            logger.info("Found manual English transcript for video %s", video_id)
         except Exception:
             # Fall back to any available transcript (auto-generated included)
             try:
@@ -252,9 +248,7 @@ def extract_youtube(url: str) -> Document:
             return _create_empty_document(video_id, source_url, "No transcript content available")
 
         # Build full text from transcript snippets
-        full_text = " ".join(
-            snippet.text.strip() for snippet in fetched_transcript
-        )
+        full_text = " ".join(snippet.text.strip() for snippet in fetched_transcript)
 
         if not full_text.strip():
             return _create_empty_document(video_id, source_url, "Transcript is empty")
@@ -289,9 +283,7 @@ def extract_youtube(url: str) -> Document:
         return _create_empty_document(video_id, source_url, error_msg)
 
 
-def _create_empty_document(
-    video_id: str, source_url: str, warning: str
-) -> Document:
+def _create_empty_document(video_id: str, source_url: str, warning: str) -> Document:
     """Create a Document with empty/placeholder content for unavailable transcripts.
 
     Args:

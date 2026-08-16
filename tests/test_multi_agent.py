@@ -3,12 +3,11 @@
 Tests all agent classes and the MultiAgentOrchestrator with mocked dependencies.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from src.agents import (
-    BaseAgent,
     DocumentAgent,
     ExaminerAgent,
     MemoryAgent,
@@ -17,7 +16,6 @@ from src.agents import (
     ReviewerAgent,
     TeacherAgent,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -202,7 +200,10 @@ class TestTeacherAgent:
         assert result["status"] == "success"
         assert result["action"] == "explain"
         # The ChatTutor returns a graceful error message as the answer
-        assert "error" in result["result"]["answer"].lower() or "sorry" in result["result"]["answer"].lower()
+        assert (
+            "error" in result["result"]["answer"].lower()
+            or "sorry" in result["result"]["answer"].lower()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -221,10 +222,19 @@ class TestExaminerAgent:
             "correct_answer": "Process of converting light to energy",
         }
         mock_batch = MagicMock()
-        mock_batch.questions = [{"id": "q-1", "question": "What?", "question_type": "mcq",
-                                  "correct_answer": "A", "options": ["A", "B", "C", "D"],
-                                  "explanation": "Because", "topic": "bio", "difficulty": "easy",
-                                  "source_chunk_ids": []}]
+        mock_batch.questions = [
+            {
+                "id": "q-1",
+                "question": "What?",
+                "question_type": "mcq",
+                "correct_answer": "A",
+                "options": ["A", "B", "C", "D"],
+                "explanation": "Because",
+                "topic": "bio",
+                "difficulty": "easy",
+                "source_chunk_ids": [],
+            }
+        ]
         mock_llm_client.generate_json.return_value = (mock_batch, {"total_tokens": 200})
 
         agent = ExaminerAgent(llm_client=mock_llm_client, retriever=mock_retriever)
@@ -259,12 +269,14 @@ class TestExaminerAgent:
         mock_llm_client.generate_json.return_value = (mock_batch, {"total_tokens": 100})
 
         agent = ExaminerAgent(llm_client=mock_llm_client, retriever=mock_retriever)
-        result = agent.run({
-            "topic": "physics",
-            "action": "quiz",
-            "difficulty": "hard",
-            "count": 10,
-        })
+        result = agent.run(
+            {
+                "topic": "physics",
+                "action": "quiz",
+                "difficulty": "hard",
+                "count": 10,
+            }
+        )
         assert result["action"] == "quiz"
 
 
@@ -278,10 +290,12 @@ class TestReviewerAgent:
 
     def test_passes_valid_string_result(self):
         agent = ReviewerAgent()
-        result = agent.run({
-            "result": "This is a valid explanation of the topic.",
-            "intent": "explain",
-        })
+        result = agent.run(
+            {
+                "result": "This is a valid explanation of the topic.",
+                "intent": "explain",
+            }
+        )
         assert result["passed"] is True
         assert result["issues"] == []
 
@@ -303,10 +317,12 @@ class TestReviewerAgent:
 
     def test_passes_non_empty_list_for_quiz(self):
         agent = ReviewerAgent()
-        result = agent.run({
-            "result": [{"question": "What is X?"}],
-            "intent": "quiz",
-        })
+        result = agent.run(
+            {
+                "result": [{"question": "What is X?"}],
+                "intent": "quiz",
+            }
+        )
         assert result["passed"] is True
 
     def test_fails_short_response_for_explain(self):
@@ -317,10 +333,12 @@ class TestReviewerAgent:
 
     def test_passes_dict_with_result_key(self):
         agent = ReviewerAgent()
-        result = agent.run({
-            "result": {"result": [{"q": "What?"}]},
-            "intent": "quiz",
-        })
+        result = agent.run(
+            {
+                "result": {"result": [{"q": "What?"}]},
+                "intent": "quiz",
+            }
+        )
         assert result["passed"] is True
 
 
@@ -333,44 +351,36 @@ class TestMemoryAgent:
     """Tests for MemoryAgent."""
 
     def test_records_score(self, mock_progress_tracker, mock_scheduler):
-        agent = MemoryAgent(
-            progress_tracker=mock_progress_tracker, scheduler=mock_scheduler
-        )
+        agent = MemoryAgent(progress_tracker=mock_progress_tracker, scheduler=mock_scheduler)
         result = agent.run({"intent": "quiz", "topic": "biology", "score": 85.0})
         assert result["updated"] is True
         mock_progress_tracker.record_score.assert_called_once_with("biology", 85.0)
 
     def test_updates_spaced_repetition(self, mock_progress_tracker, mock_scheduler):
-        agent = MemoryAgent(
-            progress_tracker=mock_progress_tracker, scheduler=mock_scheduler
+        agent = MemoryAgent(progress_tracker=mock_progress_tracker, scheduler=mock_scheduler)
+        result = agent.run(
+            {
+                "intent": "flashcard",
+                "topic": "history",
+                "card_id": "fc-001",
+                "quality": 4,
+            }
         )
-        result = agent.run({
-            "intent": "flashcard",
-            "topic": "history",
-            "card_id": "fc-001",
-            "quality": 4,
-        })
         assert result["updated"] is True
         mock_scheduler.review_card.assert_called_once_with("fc-001", 4)
 
     def test_no_update_without_score_or_card(self, mock_progress_tracker, mock_scheduler):
-        agent = MemoryAgent(
-            progress_tracker=mock_progress_tracker, scheduler=mock_scheduler
-        )
+        agent = MemoryAgent(progress_tracker=mock_progress_tracker, scheduler=mock_scheduler)
         result = agent.run({"intent": "explain", "topic": "physics"})
         assert result["updated"] is False
 
     def test_returns_mastery_level(self, mock_progress_tracker, mock_scheduler):
-        agent = MemoryAgent(
-            progress_tracker=mock_progress_tracker, scheduler=mock_scheduler
-        )
+        agent = MemoryAgent(progress_tracker=mock_progress_tracker, scheduler=mock_scheduler)
         result = agent.run({"intent": "quiz", "topic": "biology"})
         assert result["mastery_level"] == "learning"
 
     def test_returns_overall_stats(self, mock_progress_tracker, mock_scheduler):
-        agent = MemoryAgent(
-            progress_tracker=mock_progress_tracker, scheduler=mock_scheduler
-        )
+        agent = MemoryAgent(progress_tracker=mock_progress_tracker, scheduler=mock_scheduler)
         result = agent.run({"intent": "quiz", "topic": "biology"})
         assert "overall_stats" in result
         assert result["overall_stats"]["total_quizzes"] == 5
@@ -386,8 +396,12 @@ class TestMultiAgentOrchestrator:
 
     @pytest.fixture
     def orchestrator(
-        self, mock_llm_client, mock_retriever, mock_knowledge_graph,
-        mock_progress_tracker, mock_scheduler
+        self,
+        mock_llm_client,
+        mock_retriever,
+        mock_knowledge_graph,
+        mock_progress_tracker,
+        mock_scheduler,
     ):
         """Create an orchestrator with all mocked dependencies."""
         return MultiAgentOrchestrator(
@@ -413,10 +427,17 @@ class TestMultiAgentOrchestrator:
     def test_quiz_intent_routes_to_examiner(self, orchestrator, mock_llm_client):
         mock_batch = MagicMock()
         mock_batch.questions = [
-            {"id": "q-1", "question": "What?", "question_type": "mcq",
-             "correct_answer": "A", "options": ["A", "B", "C", "D"],
-             "explanation": "Reason", "topic": "bio", "difficulty": "medium",
-             "source_chunk_ids": []}
+            {
+                "id": "q-1",
+                "question": "What?",
+                "question_type": "mcq",
+                "correct_answer": "A",
+                "options": ["A", "B", "C", "D"],
+                "explanation": "Reason",
+                "topic": "bio",
+                "difficulty": "medium",
+                "source_chunk_ids": [],
+            }
         ]
         mock_llm_client.generate_json.return_value = (mock_batch, {"total_tokens": 200})
 

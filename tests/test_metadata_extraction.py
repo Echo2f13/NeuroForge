@@ -8,24 +8,30 @@ Tests MetadataExtractor functionality with mocked LLM calls:
 - Document-level summary generation
 """
 
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from models import Chunk, ChunkMetadata, Concept, Difficulty, Document, DocumentMetadata, InputFormat
+from models import (
+    Chunk,
+    ChunkMetadata,
+    Concept,
+    Difficulty,
+    Document,
+    DocumentMetadata,
+    InputFormat,
+)
 from src.extraction.metadata import (
+    MAX_PREREQ_BONUS,
+    PREREQ_TIME_BONUS,
+    STUDY_TIME_RANGES,
     ChunkSummariesResponse,
     DifficultyResponse,
     DocumentSummaryResponse,
     KeywordsResponse,
     MetadataExtractor,
-    PREREQ_TIME_BONUS,
-    MAX_PREREQ_BONUS,
-    STUDY_TIME_RANGES,
 )
 from src.llm import LLMClient, LLMProvider
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -159,9 +165,7 @@ class TestClassifyDifficulty:
             classifications = []
             for chunk in chunks:
                 if chunk.id in prompt:
-                    classifications.append(
-                        {"chunk_id": chunk.id, "difficulty": "easy"}
-                    )
+                    classifications.append({"chunk_id": chunk.id, "difficulty": "easy"})
             return DifficultyResponse(classifications=classifications), {"total_tokens": 30}
 
         mock_llm_client.generate_json.side_effect = mock_generate_json
@@ -259,9 +263,18 @@ class TestExtractKeywords:
     def test_extracts_keywords_per_chunk(self, extractor, mock_llm_client, sample_chunks):
         mock_response = KeywordsResponse(
             results=[
-                {"chunk_id": "chunk-001", "keywords": ["photosynthesis", "light", "energy", "chloroplast", "glucose"]},
-                {"chunk_id": "chunk-002", "keywords": ["krebs cycle", "biochemistry", "ATP", "mitochondria", "oxidation"]},
-                {"chunk_id": "chunk-003", "keywords": ["DNA", "genetics", "nucleotide", "helix", "gene expression"]},
+                {
+                    "chunk_id": "chunk-001",
+                    "keywords": ["photosynthesis", "light", "energy", "chloroplast", "glucose"],
+                },
+                {
+                    "chunk_id": "chunk-002",
+                    "keywords": ["krebs cycle", "biochemistry", "ATP", "mitochondria", "oxidation"],
+                },
+                {
+                    "chunk_id": "chunk-003",
+                    "keywords": ["DNA", "genetics", "nucleotide", "helix", "gene expression"],
+                },
             ]
         )
         mock_llm_client.generate_json.return_value = (mock_response, {"total_tokens": 60})
@@ -295,9 +308,18 @@ class TestGenerateChunkSummaries:
     def test_generates_summaries(self, extractor, mock_llm_client, sample_chunks):
         mock_response = ChunkSummariesResponse(
             summaries=[
-                {"chunk_id": "chunk-001", "summary": "Describes the process of photosynthesis and energy conversion."},
-                {"chunk_id": "chunk-002", "summary": "Explains the Krebs cycle and its biochemical reactions."},
-                {"chunk_id": "chunk-003", "summary": "Covers DNA structure and genetic information storage."},
+                {
+                    "chunk_id": "chunk-001",
+                    "summary": "Describes the process of photosynthesis and energy conversion.",
+                },
+                {
+                    "chunk_id": "chunk-002",
+                    "summary": "Explains the Krebs cycle and its biochemical reactions.",
+                },
+                {
+                    "chunk_id": "chunk-003",
+                    "summary": "Covers DNA structure and genetic information storage.",
+                },
             ]
         )
         mock_llm_client.generate_json.return_value = (mock_response, {"total_tokens": 80})
@@ -387,9 +409,7 @@ class TestMetadataExtractorInit:
         assert extractor.batch_size == 10
 
     def test_provider_stored(self, mock_llm_client):
-        extractor = MetadataExtractor(
-            llm_client=mock_llm_client, provider=LLMProvider.GITHUB
-        )
+        extractor = MetadataExtractor(llm_client=mock_llm_client, provider=LLMProvider.GITHUB)
         assert extractor.provider == LLMProvider.GITHUB
 
 
@@ -397,4 +417,5 @@ class TestExportFromPackage:
     def test_metadata_extractor_importable(self):
         """Verify MetadataExtractor is exported from the extraction package."""
         from src.extraction import MetadataExtractor as ME
+
         assert ME is MetadataExtractor

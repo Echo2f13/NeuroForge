@@ -5,7 +5,6 @@ and exponential backoff logic without making real API calls.
 """
 
 import json
-import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,9 +22,7 @@ from src.llm import (
     LLMConfig,
     LLMError,
     LLMProvider,
-    RateLimitError,
 )
-
 
 # ---------------------------------------------------------------------------
 # Test models for structured output
@@ -259,7 +256,7 @@ class TestBackoff:
         """Verify exponential backoff produces 1s, 2s, 4s."""
         expected = [1.0, 2.0, 4.0]
         for attempt in range(MAX_RETRIES):
-            backoff = BACKOFF_BASE * (BACKOFF_MULTIPLIER ** attempt)
+            backoff = BACKOFF_BASE * (BACKOFF_MULTIPLIER**attempt)
             assert backoff == expected[attempt]
 
     @patch.dict("os.environ", {"GROQ_API_KEY": "key1"}, clear=True)
@@ -303,9 +300,7 @@ class TestGenerateJSON:
             return_value=mock_response
         )
 
-        result, usage = client.generate_json(
-            prompt="List topics", response_model=TopicList
-        )
+        result, usage = client.generate_json(prompt="List topics", response_model=TopicList)
         assert isinstance(result, TopicList)
         assert result.topics == ["math", "physics"]
         assert result.count == 2
@@ -326,9 +321,7 @@ class TestGenerateJSON:
             return_value=mock_response
         )
 
-        result, usage = client.generate_json(
-            prompt="List topics", response_model=TopicList
-        )
+        result, usage = client.generate_json(prompt="List topics", response_model=TopicList)
         assert isinstance(result, TopicList)
         assert result.topics == ["bio"]
 
@@ -358,9 +351,7 @@ class TestGenerateJSON:
             side_effect=[bad_response, good_response]
         )
 
-        result, usage = client.generate_json(
-            prompt="List topics", response_model=TopicList
-        )
+        result, usage = client.generate_json(prompt="List topics", response_model=TopicList)
         assert isinstance(result, TopicList)
         assert result.topics == ["math", "science"]
         assert usage.get("retried") is True
@@ -394,9 +385,7 @@ class TestTryParseJSON:
     @patch.dict("os.environ", {"GROQ_API_KEY": "test-key"}, clear=True)
     def test_valid_json(self):
         client = LLMClient()
-        result = client._try_parse_json(
-            '{"fact": "Water is H2O", "confidence": 0.95}', SimpleFact
-        )
+        result = client._try_parse_json('{"fact": "Water is H2O", "confidence": 0.95}', SimpleFact)
         assert result is not None
         assert result.fact == "Water is H2O"
         assert result.confidence == 0.95

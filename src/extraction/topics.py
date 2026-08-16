@@ -32,9 +32,7 @@ logger = logging.getLogger("neuroforge.extraction.topics")
 class TopicListResponse(BaseModel):
     """LLM response model for topic extraction."""
 
-    topics: list[str] = Field(
-        ..., description="Main topics and subtopics identified in the text"
-    )
+    topics: list[str] = Field(..., description="Main topics and subtopics identified in the text")
 
 
 class ConceptResponse(BaseModel):
@@ -42,26 +40,16 @@ class ConceptResponse(BaseModel):
 
     name: str = Field(..., min_length=1, description="Concept name")
     definition: str = Field(..., min_length=1, description="Clear definition")
-    topics: list[str] = Field(
-        ..., min_length=1, description="Topics this concept belongs to"
-    )
-    difficulty: str = Field(
-        ..., description="Difficulty level: easy, medium, or hard"
-    )
-    keywords: list[str] = Field(
-        default_factory=list, description="Associated keywords"
-    )
-    prerequisites: list[str] = Field(
-        default_factory=list, description="Prerequisite concept names"
-    )
+    topics: list[str] = Field(..., min_length=1, description="Topics this concept belongs to")
+    difficulty: str = Field(..., description="Difficulty level: easy, medium, or hard")
+    keywords: list[str] = Field(default_factory=list, description="Associated keywords")
+    prerequisites: list[str] = Field(default_factory=list, description="Prerequisite concept names")
 
 
 class ConceptListResponse(BaseModel):
     """LLM response model for concept extraction."""
 
-    concepts: list[ConceptResponse] = Field(
-        ..., description="List of extracted concepts"
-    )
+    concepts: list[ConceptResponse] = Field(..., description="List of extracted concepts")
 
 
 class RelationshipResponse(BaseModel):
@@ -69,9 +57,7 @@ class RelationshipResponse(BaseModel):
 
     source: str = Field(..., description="Source concept name")
     target: str = Field(..., description="Target concept name")
-    relationship_type: str = Field(
-        ..., description="Type: prerequisite, related, or part_of"
-    )
+    relationship_type: str = Field(..., description="Type: prerequisite, related, or part_of")
 
 
 class RelationshipListResponse(BaseModel):
@@ -217,9 +203,7 @@ class TopicExtractor:
 
         return unique_topics
 
-    def extract_concepts(
-        self, chunks: list[Chunk], topics: list[str]
-    ) -> list[Concept]:
+    def extract_concepts(self, chunks: list[Chunk], topics: list[str]) -> list[Concept]:
         """Extract concepts with definitions from chunks given known topics.
 
         Processes chunks in batches, extracts concepts from each batch,
@@ -241,9 +225,7 @@ class TopicExtractor:
         for batch in self._batch_chunks(chunks):
             chunk_text = self._combine_chunk_text(batch)
             chunk_ids = [c.id for c in batch]
-            prompt = CONCEPT_EXTRACTION_PROMPT.format(
-                topics=topics_str, chunk_text=chunk_text
-            )
+            prompt = CONCEPT_EXTRACTION_PROMPT.format(topics=topics_str, chunk_text=chunk_text)
 
             try:
                 result, _usage = self.llm_client.generate_json(
@@ -325,21 +307,15 @@ class TopicExtractor:
                     new_definition = existing.definition
 
                 # Merge keywords (deduplicated)
-                all_keywords = list(
-                    dict.fromkeys(existing.keywords + concept.keywords)
-                )
+                all_keywords = list(dict.fromkeys(existing.keywords + concept.keywords))
 
                 # Merge source_chunk_ids (deduplicated)
                 all_chunk_ids = list(
-                    dict.fromkeys(
-                        existing.source_chunk_ids + concept.source_chunk_ids
-                    )
+                    dict.fromkeys(existing.source_chunk_ids + concept.source_chunk_ids)
                 )
 
                 # Merge topics (deduplicated)
-                all_topics = list(
-                    dict.fromkeys(existing.topics + concept.topics)
-                )
+                all_topics = list(dict.fromkeys(existing.topics + concept.topics))
 
                 merged[key] = Concept(
                     id=existing.id,
@@ -372,9 +348,7 @@ class TopicExtractor:
             parts.append(f"[Chunk {chunk.id}]:\n{chunk.content}")
         return "\n\n".join(parts)
 
-    def _response_to_concept(
-        self, resp: ConceptResponse, source_chunk_ids: list[str]
-    ) -> Concept:
+    def _response_to_concept(self, resp: ConceptResponse, source_chunk_ids: list[str]) -> Concept:
         """Convert an LLM ConceptResponse into a Concept model instance."""
         # Map difficulty string to enum
         difficulty_map = {
@@ -382,9 +356,7 @@ class TopicExtractor:
             "medium": Difficulty.MEDIUM,
             "hard": Difficulty.HARD,
         }
-        difficulty = difficulty_map.get(
-            resp.difficulty.lower(), Difficulty.MEDIUM
-        )
+        difficulty = difficulty_map.get(resp.difficulty.lower(), Difficulty.MEDIUM)
 
         return Concept(
             id=f"concept-{uuid.uuid4().hex[:8]}",
@@ -397,9 +369,7 @@ class TopicExtractor:
             source_chunk_ids=source_chunk_ids,
         )
 
-    def _extract_relationships(
-        self, concepts: list[Concept]
-    ) -> list[ConceptRelationship]:
+    def _extract_relationships(self, concepts: list[Concept]) -> list[ConceptRelationship]:
         """Extract relationships between extracted concepts using LLM.
 
         Args:
@@ -414,9 +384,7 @@ class TopicExtractor:
         concept_names = [c.name for c in concepts]
         concept_id_map = {c.name.lower(): c.id for c in concepts}
 
-        prompt = RELATIONSHIP_EXTRACTION_PROMPT.format(
-            concept_names=", ".join(concept_names)
-        )
+        prompt = RELATIONSHIP_EXTRACTION_PROMPT.format(concept_names=", ".join(concept_names))
 
         try:
             result, _usage = self.llm_client.generate_json(
@@ -434,11 +402,16 @@ class TopicExtractor:
             source_id = concept_id_map.get(rel.source.lower())
             target_id = concept_id_map.get(rel.target.lower())
 
-            if source_id and target_id and rel.relationship_type in {
-                "prerequisite",
-                "related",
-                "part_of",
-            }:
+            if (
+                source_id
+                and target_id
+                and rel.relationship_type
+                in {
+                    "prerequisite",
+                    "related",
+                    "part_of",
+                }
+            ):
                 relationships.append(
                     ConceptRelationship(
                         source_concept=source_id,

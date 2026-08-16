@@ -20,7 +20,6 @@ from typing import Optional
 
 from models.document import Document, DocumentMetadata, InputFormat, Section
 
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -64,8 +63,7 @@ def _detect_columns(words: list[dict]) -> bool:
 
     # Find words that start or end in the middle zone
     mid_zone_words = [
-        w for w in words
-        if (mid_left <= w["x0"] <= mid_right) or (mid_left <= w["x1"] <= mid_right)
+        w for w in words if (mid_left <= w["x0"] <= mid_right) or (mid_left <= w["x1"] <= mid_right)
     ]
 
     # If very few words appear in the middle zone relative to total, it's columnar
@@ -147,12 +145,14 @@ def _extract_headings_from_chars(chars: list[dict], page_number: int) -> list[Se
                 heading_text = "".join(current_heading_chars).strip()
                 if heading_text and len(heading_text) > 2:
                     level = 1 if char_size >= median_size * 1.5 else 2
-                    headings.append(Section(
-                        heading=heading_text,
-                        content=heading_text,
-                        level=level,
-                        page_number=page_number,
-                    ))
+                    headings.append(
+                        Section(
+                            heading=heading_text,
+                            content=heading_text,
+                            level=level,
+                            page_number=page_number,
+                        )
+                    )
                 current_heading_chars = []
 
             current_heading_chars.append(char_text)
@@ -163,12 +163,14 @@ def _extract_headings_from_chars(chars: list[dict], page_number: int) -> list[Se
                 heading_text = "".join(current_heading_chars).strip()
                 if heading_text and len(heading_text) > 2:
                     level = 1 if (current_size or 0) >= median_size * 1.5 else 2
-                    headings.append(Section(
-                        heading=heading_text,
-                        content=heading_text,
-                        level=level,
-                        page_number=page_number,
-                    ))
+                    headings.append(
+                        Section(
+                            heading=heading_text,
+                            content=heading_text,
+                            level=level,
+                            page_number=page_number,
+                        )
+                    )
                 current_heading_chars = []
                 current_size = None
 
@@ -177,12 +179,14 @@ def _extract_headings_from_chars(chars: list[dict], page_number: int) -> list[Se
         heading_text = "".join(current_heading_chars).strip()
         if heading_text and len(heading_text) > 2:
             level = 1 if (current_size or 0) >= median_size * 1.5 else 2
-            headings.append(Section(
-                heading=heading_text,
-                content=heading_text,
-                level=level,
-                page_number=page_number,
-            ))
+            headings.append(
+                Section(
+                    heading=heading_text,
+                    content=heading_text,
+                    level=level,
+                    page_number=page_number,
+                )
+            )
 
     return headings
 
@@ -311,12 +315,14 @@ def _extract_with_pymupdf(file_path: str) -> Document:
                         flags = span.get("flags", 0)
                         is_bold = bool(flags & 2**4)  # bit 4 = bold
                         level = 1 if span_size > 18 or is_bold else 2
-                        all_sections.append(Section(
-                            heading=span_text,
-                            content=span_text,
-                            level=level,
-                            page_number=page_num + 1,
-                        ))
+                        all_sections.append(
+                            Section(
+                                heading=span_text,
+                                content=span_text,
+                                level=level,
+                                page_number=page_num + 1,
+                            )
+                        )
 
     doc.close()
 

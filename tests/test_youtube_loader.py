@@ -16,14 +16,12 @@ import pytest
 
 from models.document import InputFormat
 from src.ingestion.youtube_loader import (
-    SECTION_INTERVAL_SECONDS,
     YouTubeLoader,
     _format_timestamp,
     _group_transcript_into_sections,
     extract_video_id,
     extract_youtube,
 )
-
 
 # ============================================================================
 # Tests for extract_video_id
@@ -360,4 +358,5 @@ class TestYouTubeLoader:
     def test_importable_from_ingestion_package(self):
         """YouTubeLoader is importable from src.ingestion."""
         from src.ingestion import YouTubeLoader as LoaderFromPackage
+
         assert LoaderFromPackage is YouTubeLoader

@@ -8,7 +8,6 @@ Handles handwritten text best-effort and notes diagram presence in metadata.
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -280,9 +279,7 @@ def extract_image(file_path: str) -> Document:
         ocr_engine_used = "tesseract"
 
     if results is None:
-        raise OCREngineError(
-            "No OCR engine available. Install paddleocr or pytesseract + Pillow."
-        )
+        raise OCREngineError("No OCR engine available. Install paddleocr or pytesseract + Pillow.")
 
     # Sort results in reading order
     sorted_results = _sort_boxes_reading_order(results)

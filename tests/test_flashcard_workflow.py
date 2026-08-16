@@ -4,8 +4,7 @@ Tests the FlashcardWorkflow pipeline (retrieve → generate → format)
 with mocked LLM and Retriever dependencies.
 """
 
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -17,7 +16,6 @@ from src.workflows.flashcards import (
     _FlashcardBatch,
     _FlashcardItem,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -140,23 +138,17 @@ class TestFlashcardWorkflowGenerate:
         cards = workflow.generate(topic="photosynthesis", num_cards=3)
         for card in cards:
             word_count = len(card.answer.split())
-            assert 1 <= word_count <= 10, (
-                f"Answer '{card.answer}' has {word_count} words, expected 1-10"
-            )
+            assert (
+                1 <= word_count <= 10
+            ), f"Answer '{card.answer}' has {word_count} words, expected 1-10"
 
-    def test_generate_uses_semantic_search_without_difficulty(
-        self, workflow, mock_retriever
-    ):
+    def test_generate_uses_semantic_search_without_difficulty(self, workflow, mock_retriever):
         """Without difficulty filter, uses semantic_search."""
         workflow.generate(topic="photosynthesis", num_cards=3)
-        mock_retriever.semantic_search.assert_called_once_with(
-            query="photosynthesis", top_k=10
-        )
+        mock_retriever.semantic_search.assert_called_once_with(query="photosynthesis", top_k=10)
         mock_retriever.filtered_search.assert_not_called()
 
-    def test_generate_uses_filtered_search_with_difficulty(
-        self, workflow, mock_retriever
-    ):
+    def test_generate_uses_filtered_search_with_difficulty(self, workflow, mock_retriever):
         """With difficulty filter, uses filtered_search."""
         workflow.generate(topic="photosynthesis", difficulty="easy", num_cards=3)
         mock_retriever.filtered_search.assert_called_once_with(
@@ -164,9 +156,7 @@ class TestFlashcardWorkflowGenerate:
         )
         mock_retriever.semantic_search.assert_not_called()
 
-    def test_generate_calls_llm_with_correct_model(
-        self, workflow, mock_llm_client
-    ):
+    def test_generate_calls_llm_with_correct_model(self, workflow, mock_llm_client):
         """LLM is called with _FlashcardBatch as response model."""
         workflow.generate(topic="photosynthesis", num_cards=3)
         call_kwargs = mock_llm_client.generate_json.call_args[1]
@@ -221,12 +211,20 @@ class TestFormatStep:
         """Each card gets a unique ID."""
         raw_cards = [
             _FlashcardItem(
-                question="Q1?", answer="A1", difficulty="easy",
-                related_topics=[], hint=None, mnemonic=None,
+                question="Q1?",
+                answer="A1",
+                difficulty="easy",
+                related_topics=[],
+                hint=None,
+                mnemonic=None,
             ),
             _FlashcardItem(
-                question="Q2?", answer="A2", difficulty="medium",
-                related_topics=[], hint=None, mnemonic=None,
+                question="Q2?",
+                answer="A2",
+                difficulty="medium",
+                related_topics=[],
+                hint=None,
+                mnemonic=None,
             ),
         ]
         chunks = [{"id": "c1"}, {"id": "c2"}]
@@ -238,8 +236,12 @@ class TestFormatStep:
         """Difficulty strings are mapped to Difficulty enum values."""
         raw_cards = [
             _FlashcardItem(
-                question="Q?", answer="A", difficulty="hard",
-                related_topics=[], hint=None, mnemonic=None,
+                question="Q?",
+                answer="A",
+                difficulty="hard",
+                related_topics=[],
+                hint=None,
+                mnemonic=None,
             ),
         ]
         result = workflow._format(raw_cards, [{"id": "c1"}])
@@ -249,8 +251,12 @@ class TestFormatStep:
         """Invalid difficulty defaults to MEDIUM."""
         raw_cards = [
             _FlashcardItem(
-                question="Q?", answer="A", difficulty="expert",
-                related_topics=[], hint=None, mnemonic=None,
+                question="Q?",
+                answer="A",
+                difficulty="expert",
+                related_topics=[],
+                hint=None,
+                mnemonic=None,
             ),
         ]
         result = workflow._format(raw_cards, [{"id": "c1"}])

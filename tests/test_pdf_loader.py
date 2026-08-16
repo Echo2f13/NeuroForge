@@ -2,24 +2,18 @@
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from models.document import Document, DocumentMetadata, InputFormat, Section
+from models.document import Document, DocumentMetadata, InputFormat
 from src.ingestion.pdf_loader import (
-    COLUMN_GAP_THRESHOLD,
-    HEADING_FONT_SIZE_RATIO,
-    SCANNED_PAGE_CHAR_THRESHOLD,
     PDFLoader,
     _detect_columns,
     _extract_headings_from_chars,
     _split_columns,
     extract_pdf,
 )
-
 
 # ---------------------------------------------------------------------------
 # PDFLoader class tests
@@ -100,8 +94,7 @@ class TestDetectColumns:
         """Returns False when words are spread across the page."""
         # Simulate words spread evenly
         words = [
-            {"x0": i * 10, "x1": i * 10 + 30, "top": i * 20, "text": f"word{i}"}
-            for i in range(30)
+            {"x0": i * 10, "x1": i * 10 + 30, "top": i * 20, "text": f"word{i}"} for i in range(30)
         ]
         assert _detect_columns(words) is False
 
@@ -109,14 +102,10 @@ class TestDetectColumns:
         """Returns True when there's a clear gap in the middle zone."""
         page_width = 600
         # Left column words (x: 20-250)
-        left_words = [
-            {"x0": 20, "x1": 100, "top": i * 15, "text": f"left{i}"}
-            for i in range(15)
-        ]
+        left_words = [{"x0": 20, "x1": 100, "top": i * 15, "text": f"left{i}"} for i in range(15)]
         # Right column words (x: 350-580)
         right_words = [
-            {"x0": 350, "x1": 500, "top": i * 15, "text": f"right{i}"}
-            for i in range(15)
+            {"x0": 350, "x1": 500, "top": i * 15, "text": f"right{i}"} for i in range(15)
         ]
         words = left_words + right_words
         # Check: middle zone (30%-70% of 600 = 180-420) has few words
@@ -124,12 +113,10 @@ class TestDetectColumns:
         # Only right_words starting at 350 fall in mid zone (180-420)
         # Let's adjust to make a clear gap
         left_words_clear = [
-            {"x0": 20, "x1": 150, "top": i * 15, "text": f"left{i}"}
-            for i in range(15)
+            {"x0": 20, "x1": 150, "top": i * 15, "text": f"left{i}"} for i in range(15)
         ]
         right_words_clear = [
-            {"x0": 450, "x1": 580, "top": i * 15, "text": f"right{i}"}
-            for i in range(15)
+            {"x0": 450, "x1": 580, "top": i * 15, "text": f"right{i}"} for i in range(15)
         ]
         words_clear = left_words_clear + right_words_clear
         assert _detect_columns(words_clear) is True

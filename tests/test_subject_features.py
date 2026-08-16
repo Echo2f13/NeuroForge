@@ -5,22 +5,17 @@ components and that progress is tracked per-subject. This ensures proper
 isolation between study subjects.
 """
 
-import json
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from models.knowledge import Concept, Difficulty
-from models.output import QuizQuestion, Flashcard
+from models.output import Flashcard
 from src.memory.progress import ProgressTracker
 from src.retrieval.subject_retriever import SubjectRetriever
-from src.subjects.manager import SubjectManager, SubjectNotFoundError
+from src.subjects.manager import SubjectManager
 from src.workflows.chat_tutor import ChatTutor
 from src.workflows.flashcards import FlashcardWorkflow, _FlashcardBatch, _FlashcardItem
 from src.workflows.quiz import QuizWorkflow, _QuizBatch
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -114,7 +109,7 @@ def subject_manager(tmp_data_dir):
         mock_storage.get_sr_state_path.return_value = tmp_data_dir / "sr.json"
         mock_storage.get_chroma_dir.return_value = tmp_data_dir / "chroma"
         MockStorage.return_value = mock_storage
-        
+
         manager = SubjectManager(data_dir=str(tmp_data_dir))
         return manager
 
@@ -130,52 +125,53 @@ class TestQuizSubjectScoping:
     @pytest.fixture
     def quiz_llm_response(self):
         """Sample LLM response for quiz questions."""
-        return _QuizBatch(questions=[
-            {
-                "id": "q-001",
-                "question": "What is the formula for force?",
-                "question_type": "short_answer",
-                "options": None,
-                "correct_answer": "F = ma",
-                "explanation": "Force equals mass times acceleration.",
-                "topic": "mechanics",
-                "difficulty": "easy",
-                "source_chunk_ids": ["chunk-001"],
-            },
-        ])
+        return _QuizBatch(
+            questions=[
+                {
+                    "id": "q-001",
+                    "question": "What is the formula for force?",
+                    "question_type": "short_answer",
+                    "options": None,
+                    "correct_answer": "F = ma",
+                    "explanation": "Force equals mass times acceleration.",
+                    "topic": "mechanics",
+                    "difficulty": "easy",
+                    "source_chunk_ids": ["chunk-001"],
+                },
+            ]
+        )
 
     def test_quiz_workflow_uses_subject_retriever(
         self, subject_retriever, mock_llm_client, quiz_llm_response
     ):
         """Quiz workflow should use the subject retriever's search."""
         mock_llm_client.generate_json.return_value = (quiz_llm_response, {"total_tokens": 100})
-        
+
         workflow = QuizWorkflow(
             llm_client=mock_llm_client,
             retriever=subject_retriever,
             subject_id="physics",
         )
-        
+
         questions = workflow.generate(topic="force", num_questions=1)
-        
+
         # Verify retriever was called
         subject_retriever.vector_store.search_chunks.assert_called()
         assert len(questions) >= 0  # May be 0 if validation fails
-
 
     def test_quiz_workflow_stores_subject_id(self, subject_retriever, mock_llm_client):
         """Quiz workflow should store the subject_id."""
         mock_llm_client.generate_json.return_value = (
             _QuizBatch(questions=[]),
-            {"total_tokens": 50}
+            {"total_tokens": 50},
         )
-        
+
         workflow = QuizWorkflow(
             llm_client=mock_llm_client,
             retriever=subject_retriever,
             subject_id="physics",
         )
-        
+
         assert workflow.subject_id == "physics"
 
     def test_quiz_workflow_retrieves_from_correct_subject(
@@ -187,24 +183,22 @@ class TestQuizSubjectScoping:
             knowledge_graph=mock_knowledge_graph,
             subject_id="chemistry",
         )
-        
+
         mock_llm_client.generate_json.return_value = (
             _QuizBatch(questions=[]),
-            {"total_tokens": 50}
+            {"total_tokens": 50},
         )
-        
+
         workflow = QuizWorkflow(
             llm_client=mock_llm_client,
             retriever=retriever,
             subject_id="chemistry",
         )
-        
+
         workflow.generate(topic="reactions", num_questions=5)
-        
+
         # Verify the search was performed via the subject retriever
-        mock_vector_store.search_chunks.assert_called_with(
-            "chemistry", "reactions", top_k=10
-        )
+        mock_vector_store.search_chunks.assert_called_with("chemistry", "reactions", top_k=10)
 
 
 # ---------------------------------------------------------------------------
@@ -218,55 +212,51 @@ class TestFlashcardSubjectScoping:
     @pytest.fixture
     def flashcard_llm_response(self):
         """Sample LLM response for flashcards."""
-        return _FlashcardBatch(flashcards=[
-            _FlashcardItem(
-                question="What is Newton's second law?",
-                answer="F = ma",
-                hint="Think about force and acceleration",
-                mnemonic="Force Makes Acceleration",
-                related_topics=["kinematics", "dynamics"],
-                difficulty="easy",
-            ),
-        ])
+        return _FlashcardBatch(
+            flashcards=[
+                _FlashcardItem(
+                    question="What is Newton's second law?",
+                    answer="F = ma",
+                    hint="Think about force and acceleration",
+                    mnemonic="Force Makes Acceleration",
+                    related_topics=["kinematics", "dynamics"],
+                    difficulty="easy",
+                ),
+            ]
+        )
 
     def test_flashcard_workflow_uses_subject_retriever(
         self, subject_retriever, mock_llm_client, flashcard_llm_response
     ):
         """Flashcard workflow should use the subject retriever."""
-        mock_llm_client.generate_json.return_value = (
-            flashcard_llm_response, 
-            {"total_tokens": 100}
-        )
-        
+        mock_llm_client.generate_json.return_value = (flashcard_llm_response, {"total_tokens": 100})
+
         workflow = FlashcardWorkflow(
             retriever=subject_retriever,
             llm_client=mock_llm_client,
             subject_id="physics",
         )
-        
+
         cards = workflow.generate(topic="mechanics", num_cards=1)
-        
+
         # Verify retriever was called
         subject_retriever.vector_store.search_chunks.assert_called()
         assert len(cards) == 1
         assert isinstance(cards[0], Flashcard)
 
-
-    def test_flashcard_workflow_stores_subject_id(
-        self, subject_retriever, mock_llm_client
-    ):
+    def test_flashcard_workflow_stores_subject_id(self, subject_retriever, mock_llm_client):
         """Flashcard workflow should store the subject_id."""
         mock_llm_client.generate_json.return_value = (
             _FlashcardBatch(flashcards=[]),
-            {"total_tokens": 50}
+            {"total_tokens": 50},
         )
-        
+
         workflow = FlashcardWorkflow(
             retriever=subject_retriever,
             llm_client=mock_llm_client,
             subject_id="physics",
         )
-        
+
         assert workflow.subject_id == "physics"
 
     def test_flashcard_with_difficulty_uses_filtered_search(
@@ -275,17 +265,17 @@ class TestFlashcardSubjectScoping:
         """Flashcard with difficulty filter should use filtered_search."""
         mock_llm_client.generate_json.return_value = (
             _FlashcardBatch(flashcards=[]),
-            {"total_tokens": 50}
+            {"total_tokens": 50},
         )
-        
+
         workflow = FlashcardWorkflow(
             retriever=subject_retriever,
             llm_client=mock_llm_client,
             subject_id="physics",
         )
-        
+
         workflow.generate(topic="force", difficulty="easy", num_cards=5)
-        
+
         # Filtered search should be called instead of semantic search
         subject_retriever.vector_store.search_concepts.assert_called()
 
@@ -298,23 +288,21 @@ class TestFlashcardSubjectScoping:
 class TestChatTutorSubjectScoping:
     """Test that chat tutor uses subject-scoped retrieval."""
 
-    def test_chat_tutor_uses_subject_retriever(
-        self, subject_retriever, mock_llm_client
-    ):
+    def test_chat_tutor_uses_subject_retriever(self, subject_retriever, mock_llm_client):
         """Chat tutor should use the subject retriever for context."""
         mock_llm_client.generate.return_value = (
             "Force is calculated as F = ma, based on the study material.",
-            {"total_tokens": 50}
+            {"total_tokens": 50},
         )
-        
+
         tutor = ChatTutor(
             retriever=subject_retriever,
             llm_client=mock_llm_client,
             subject_id="physics",
         )
-        
+
         response = tutor.ask("What is force?")
-        
+
         # Verify retriever was called
         subject_retriever.vector_store.search_chunks.assert_called()
         assert "answer" in response
@@ -327,48 +315,43 @@ class TestChatTutorSubjectScoping:
             llm_client=mock_llm_client,
             subject_id="physics",
         )
-        
+
         assert tutor.subject_id == "physics"
 
-    def test_chat_tutor_maintains_conversation_history(
-        self, subject_retriever, mock_llm_client
-    ):
+    def test_chat_tutor_maintains_conversation_history(self, subject_retriever, mock_llm_client):
         """Chat tutor should maintain history within a subject session."""
         mock_llm_client.generate.return_value = (
             "Based on the material, force relates to mass and acceleration.",
-            {"total_tokens": 50}
+            {"total_tokens": 50},
         )
-        
+
         tutor = ChatTutor(
             retriever=subject_retriever,
             llm_client=mock_llm_client,
             subject_id="physics",
         )
-        
+
         tutor.ask("What is force?")
         tutor.ask("How does it relate to mass?")
-        
+
         assert len(tutor.history) == 4  # 2 questions + 2 answers
 
-
-    def test_chat_tutor_reset_clears_history(
-        self, subject_retriever, mock_llm_client
-    ):
+    def test_chat_tutor_reset_clears_history(self, subject_retriever, mock_llm_client):
         """Reset should clear conversation history."""
         mock_llm_client.generate.return_value = (
             "Here's the answer based on your study materials.",
-            {"total_tokens": 50}
+            {"total_tokens": 50},
         )
-        
+
         tutor = ChatTutor(
             retriever=subject_retriever,
             llm_client=mock_llm_client,
             subject_id="physics",
         )
-        
+
         tutor.ask("Question 1")
         assert len(tutor.history) == 2
-        
+
         tutor.reset()
         assert len(tutor.history) == 0
 
@@ -381,30 +364,30 @@ class TestChatTutorSubjectScoping:
             knowledge_graph=mock_knowledge_graph,
             subject_id="physics",
         )
-        
+
         chemistry_retriever = SubjectRetriever(
             vector_store=mock_vector_store,
             knowledge_graph=mock_knowledge_graph,
             subject_id="chemistry",
         )
-        
+
         mock_llm_client.generate.return_value = ("Answer", {"total_tokens": 50})
-        
+
         physics_tutor = ChatTutor(
             retriever=physics_retriever,
             llm_client=mock_llm_client,
             subject_id="physics",
         )
-        
+
         chemistry_tutor = ChatTutor(
             retriever=chemistry_retriever,
             llm_client=mock_llm_client,
             subject_id="chemistry",
         )
-        
+
         physics_tutor.ask("What is force?")
         chemistry_tutor.ask("What is a chemical bond?")
-        
+
         # Both should have called search_chunks with their respective subject_ids
         calls = mock_vector_store.search_chunks.call_args_list
         subject_ids_searched = [call[0][0] for call in calls]
@@ -429,7 +412,7 @@ class TestProgressSubjectScoping:
     def test_record_score_saves_to_progress(self, progress_tracker):
         """Recording a score should update topic progress."""
         progress_tracker.record_score(topic="mechanics", score=85.0)
-        
+
         progress = progress_tracker.get_topic_progress("mechanics")
         assert progress.attempts == 1
         assert progress.average_score == 85.0
@@ -438,7 +421,7 @@ class TestProgressSubjectScoping:
         """Multiple scores should average correctly."""
         progress_tracker.record_score(topic="thermodynamics", score=80.0)
         progress_tracker.record_score(topic="thermodynamics", score=90.0)
-        
+
         progress = progress_tracker.get_topic_progress("thermodynamics")
         assert progress.attempts == 2
         assert progress.average_score == 85.0
@@ -447,36 +430,35 @@ class TestProgressSubjectScoping:
         """Each subject should have its own progress tracker."""
         physics_state = tmp_path / "physics_state.json"
         chemistry_state = tmp_path / "chemistry_state.json"
-        
+
         physics_tracker = ProgressTracker(state_file=str(physics_state))
         chemistry_tracker = ProgressTracker(state_file=str(chemistry_state))
-        
+
         physics_tracker.record_score(topic="force", score=90.0)
         chemistry_tracker.record_score(topic="reactions", score=75.0)
-        
+
         # Physics tracker should not have chemistry topic
         physics_progress = physics_tracker.get_topic_progress("reactions")
         assert physics_progress.attempts == 0
-        
+
         # Chemistry tracker should not have physics topic
         chemistry_progress = chemistry_tracker.get_topic_progress("force")
         assert chemistry_progress.attempts == 0
-
 
     def test_weak_topics_identified_per_subject(self, tmp_path):
         """Weak topics should be identified based on subject-specific scores."""
         state_file = tmp_path / "state.json"
         tracker = ProgressTracker(state_file=str(state_file))
-        
+
         # Record weak topic (below 60%)
         tracker.record_score(topic="calculus", score=45.0)
-        
+
         # Record strong topic (above 85%)
         tracker.record_score(topic="algebra", score=95.0)
-        
+
         weak_topics = tracker.get_weak_topics()
         strong_topics = tracker.get_strong_topics()
-        
+
         assert "calculus" in weak_topics
         assert "algebra" in strong_topics
         assert "algebra" not in weak_topics
@@ -485,14 +467,14 @@ class TestProgressSubjectScoping:
     def test_progress_persistence(self, tmp_path):
         """Progress should persist between tracker instances."""
         state_file = tmp_path / "persistent_state.json"
-        
+
         # Create tracker and record score
         tracker1 = ProgressTracker(state_file=str(state_file))
         tracker1.record_score(topic="optics", score=78.0)
-        
+
         # Create new tracker with same file
         tracker2 = ProgressTracker(state_file=str(state_file))
-        
+
         progress = tracker2.get_topic_progress("optics")
         assert progress.attempts == 1
         assert progress.average_score == 78.0
@@ -501,15 +483,15 @@ class TestProgressSubjectScoping:
         """Mastery level should be calculated based on scores."""
         # Not started (no attempts)
         assert progress_tracker.get_mastery_level("unknown_topic") == "not_started"
-        
+
         # Learning (below 60%)
         progress_tracker.record_score(topic="hard_topic", score=45.0)
         assert progress_tracker.get_mastery_level("hard_topic") == "learning"
-        
+
         # Familiar (60-85%)
         progress_tracker.record_score(topic="medium_topic", score=75.0)
         assert progress_tracker.get_mastery_level("medium_topic") == "familiar"
-        
+
         # Mastered (above 85%)
         progress_tracker.record_score(topic="easy_topic", score=95.0)
         assert progress_tracker.get_mastery_level("easy_topic") == "mastered"
@@ -528,19 +510,19 @@ class TestDashboardSubjectStats:
         """Create a ProgressTracker with sample data."""
         state_file = tmp_path / "dashboard_state.json"
         tracker = ProgressTracker(state_file=str(state_file))
-        
+
         # Record various scores
         tracker.record_score(topic="mechanics", score=90.0)
         tracker.record_score(topic="mechanics", score=85.0)
         tracker.record_score(topic="thermodynamics", score=70.0)
         tracker.record_score(topic="optics", score=55.0)
-        
+
         return tracker
 
     def test_overall_stats_aggregation(self, tracker_with_data):
         """Overall stats should aggregate across all topics."""
         stats = tracker_with_data.get_overall_stats()
-        
+
         assert stats["total_quizzes"] == 4
         assert stats["total_topics"] == 3
         assert stats["average_score"] == pytest.approx(75.0, rel=0.01)
@@ -548,7 +530,7 @@ class TestDashboardSubjectStats:
     def test_dashboard_data_structure(self, tracker_with_data):
         """Dashboard data should include all required sections."""
         dashboard = tracker_with_data.get_dashboard_data()
-        
+
         assert "streak" in dashboard
         assert "overall" in dashboard
         assert "weekly" in dashboard
@@ -562,12 +544,12 @@ class TestDashboardSubjectStats:
         """Dashboard should show mastery for each topic."""
         dashboard = tracker_with_data.get_dashboard_data()
         topic_mastery = dashboard["topic_mastery"]
-        
+
         assert len(topic_mastery) == 3  # 3 topics recorded
-        
+
         # Should be sorted by mastery percent descending
         assert topic_mastery[0]["mastery_percent"] >= topic_mastery[1]["mastery_percent"]
-        
+
         # Check structure
         for topic in topic_mastery:
             assert "topic" in topic
@@ -575,36 +557,33 @@ class TestDashboardSubjectStats:
             assert "mastery_level" in topic
             assert "attempts" in topic
 
-
     def test_exam_readiness_score(self, tracker_with_data):
         """Dashboard should calculate exam readiness."""
         dashboard = tracker_with_data.get_dashboard_data()
         exam_readiness = dashboard["exam_readiness"]
-        
+
         assert "score" in exam_readiness
         assert "level" in exam_readiness
         assert "message" in exam_readiness
         assert "breakdown" in exam_readiness
-        
+
         # Score should be between 0 and 100
         assert 0 <= exam_readiness["score"] <= 100
-        
+
         # Level should be one of the defined levels
-        assert exam_readiness["level"] in [
-            "excellent", "good", "moderate", "needs_work"
-        ]
+        assert exam_readiness["level"] in ["excellent", "good", "moderate", "needs_work"]
 
     def test_streak_tracking(self, tmp_path):
         """Dashboard should track study streaks."""
         state_file = tmp_path / "streak_state.json"
         tracker = ProgressTracker(state_file=str(state_file))
-        
+
         # Record a card review to start streak
         tracker.record_card_review("fc-001")
-        
+
         dashboard = tracker.get_dashboard_data()
         streak = dashboard["streak"]
-        
+
         assert "current_streak" in streak
         assert "longest_streak" in streak
         assert "total_cards_reviewed" in streak
@@ -614,9 +593,9 @@ class TestDashboardSubjectStats:
         """Dashboard should handle empty tracker gracefully."""
         state_file = tmp_path / "empty_state.json"
         tracker = ProgressTracker(state_file=str(state_file))
-        
+
         dashboard = tracker.get_dashboard_data()
-        
+
         # Should return valid structure with zeros
         assert dashboard["overall"]["total_quizzes"] == 0
         assert dashboard["overall"]["total_topics"] == 0
@@ -631,38 +610,30 @@ class TestDashboardSubjectStats:
 class TestSubjectRetrieverIsolation:
     """Test that SubjectRetriever properly isolates subject data."""
 
-    def test_semantic_search_uses_subject_id(
-        self, mock_vector_store, mock_knowledge_graph
-    ):
+    def test_semantic_search_uses_subject_id(self, mock_vector_store, mock_knowledge_graph):
         """Semantic search should scope to the subject."""
         retriever = SubjectRetriever(
             vector_store=mock_vector_store,
             knowledge_graph=mock_knowledge_graph,
             subject_id="biology",
         )
-        
+
         retriever.semantic_search("photosynthesis", top_k=5)
-        
+
         mock_vector_store.search_chunks.assert_called_once_with(
             "biology", "photosynthesis", top_k=5
         )
 
-    def test_filtered_search_uses_subject_id(
-        self, mock_vector_store, mock_knowledge_graph
-    ):
+    def test_filtered_search_uses_subject_id(self, mock_vector_store, mock_knowledge_graph):
         """Filtered search should scope to the subject."""
         retriever = SubjectRetriever(
             vector_store=mock_vector_store,
             knowledge_graph=mock_knowledge_graph,
             subject_id="biology",
         )
-        
-        retriever.filtered_search(
-            query="cells", 
-            top_k=5, 
-            difficulty="medium"
-        )
-        
+
+        retriever.filtered_search(query="cells", top_k=5, difficulty="medium")
+
         mock_vector_store.search_concepts.assert_called()
 
     def test_retriever_subject_id_attribute(self, mock_vector_store, mock_knowledge_graph):
@@ -672,21 +643,19 @@ class TestSubjectRetrieverIsolation:
             knowledge_graph=mock_knowledge_graph,
             subject_id="mathematics",
         )
-        
+
         assert retriever.subject_id == "mathematics"
 
-    def test_graph_retrieval_uses_knowledge_graph(
-        self, mock_vector_store, mock_knowledge_graph
-    ):
+    def test_graph_retrieval_uses_knowledge_graph(self, mock_vector_store, mock_knowledge_graph):
         """Graph retrieval should use the subject's knowledge graph."""
         retriever = SubjectRetriever(
             vector_store=mock_vector_store,
             knowledge_graph=mock_knowledge_graph,
             subject_id="physics",
         )
-        
+
         retriever.graph_retrieval("concept-001")
-        
+
         # Should query the knowledge graph for related concepts
         mock_knowledge_graph.get_prerequisites.assert_called()
         mock_knowledge_graph.get_related.assert_called()
@@ -709,133 +678,130 @@ class TestSubjectWorkflowIntegration:
             "llm_client": mock_llm_client,
         }
 
-    def test_quiz_then_progress_integration(
-        self, tmp_path, mock_components
-    ):
+    def test_quiz_then_progress_integration(self, tmp_path, mock_components):
         """Quiz completion should record progress to subject tracker."""
         # Setup
         physics_state = tmp_path / "physics_progress.json"
         physics_tracker = ProgressTracker(state_file=str(physics_state))
-        
+
         physics_retriever = SubjectRetriever(
             vector_store=mock_components["vector_store"],
             knowledge_graph=mock_components["knowledge_graph"],
             subject_id="physics",
         )
-        
+
         mock_components["llm_client"].generate_json.return_value = (
-            _QuizBatch(questions=[
-                {
-                    "id": "q-test",
-                    "question": "What is F=ma?",
-                    "question_type": "short_answer",
-                    "options": None,
-                    "correct_answer": "Newton's second law",
-                    "explanation": "Force equals mass times acceleration",
-                    "topic": "mechanics",
-                    "difficulty": "easy",
-                    "source_chunk_ids": ["chunk-001"],
-                }
-            ]),
-            {"total_tokens": 100}
+            _QuizBatch(
+                questions=[
+                    {
+                        "id": "q-test",
+                        "question": "What is F=ma?",
+                        "question_type": "short_answer",
+                        "options": None,
+                        "correct_answer": "Newton's second law",
+                        "explanation": "Force equals mass times acceleration",
+                        "topic": "mechanics",
+                        "difficulty": "easy",
+                        "source_chunk_ids": ["chunk-001"],
+                    }
+                ]
+            ),
+            {"total_tokens": 100},
         )
-        
+
         # Generate quiz
         workflow = QuizWorkflow(
             llm_client=mock_components["llm_client"],
             retriever=physics_retriever,
             subject_id="physics",
         )
-        
+
         questions = workflow.generate(topic="mechanics", num_questions=1)
-        
+
         # Simulate quiz completion
         physics_tracker.record_score(topic="mechanics", score=80.0)
-        
+
         # Verify progress recorded
         progress = physics_tracker.get_topic_progress("mechanics")
         assert progress.attempts == 1
         assert progress.average_score == 80.0
 
-
-    def test_multiple_subjects_complete_isolation(
-        self, tmp_path, mock_components
-    ):
+    def test_multiple_subjects_complete_isolation(self, tmp_path, mock_components):
         """Multiple subjects should have completely isolated workflows."""
         # Setup separate trackers
         physics_state = tmp_path / "physics.json"
         chemistry_state = tmp_path / "chemistry.json"
-        
+
         physics_tracker = ProgressTracker(state_file=str(physics_state))
         chemistry_tracker = ProgressTracker(state_file=str(chemistry_state))
-        
+
         # Setup separate retrievers
         physics_retriever = SubjectRetriever(
             vector_store=mock_components["vector_store"],
             knowledge_graph=mock_components["knowledge_graph"],
             subject_id="physics",
         )
-        
+
         chemistry_retriever = SubjectRetriever(
             vector_store=mock_components["vector_store"],
             knowledge_graph=mock_components["knowledge_graph"],
             subject_id="chemistry",
         )
-        
+
         # Record progress for each subject
         physics_tracker.record_score(topic="mechanics", score=85.0)
         physics_tracker.record_score(topic="optics", score=75.0)
-        
+
         chemistry_tracker.record_score(topic="organic", score=90.0)
         chemistry_tracker.record_score(topic="inorganic", score=70.0)
-        
+
         # Verify isolation
         physics_stats = physics_tracker.get_overall_stats()
         chemistry_stats = chemistry_tracker.get_overall_stats()
-        
+
         assert physics_stats["total_topics"] == 2
         assert chemistry_stats["total_topics"] == 2
-        
+
         # Physics should not see chemistry topics
         physics_mastery = physics_tracker.get_mastery_level("organic")
         assert physics_mastery == "not_started"
-        
+
         # Chemistry should not see physics topics
         chemistry_mastery = chemistry_tracker.get_mastery_level("mechanics")
         assert chemistry_mastery == "not_started"
 
-    def test_flashcard_to_spaced_repetition_flow(
-        self, tmp_path, mock_components
-    ):
+    def test_flashcard_to_spaced_repetition_flow(self, tmp_path, mock_components):
         """Flashcard generation should prepare cards for spaced repetition."""
         mock_components["llm_client"].generate_json.return_value = (
-            _FlashcardBatch(flashcards=[
-                _FlashcardItem(
-                    question="What is force?",
-                    answer="Push or pull",
-                    hint="F=ma",
-                    mnemonic=None,
-                    related_topics=["motion"],
-                    difficulty="easy",
-                ),
-            ]),
-            {"total_tokens": 100}
+            _FlashcardBatch(
+                flashcards=[
+                    _FlashcardItem(
+                        question="What is force?",
+                        answer="Push or pull",
+                        hint="F=ma",
+                        mnemonic=None,
+                        related_topics=["motion"],
+                        difficulty="easy",
+                    ),
+                ]
+            ),
+            {"total_tokens": 100},
         )
-        
+
         physics_retriever = SubjectRetriever(
             vector_store=mock_components["vector_store"],
             knowledge_graph=mock_components["knowledge_graph"],
             subject_id="physics",
         )
-        
+
         workflow = FlashcardWorkflow(
             retriever=physics_retriever,
             llm_client=mock_components["llm_client"],
             subject_id="physics",
         )
-        
+
         cards = workflow.generate(topic="mechanics", num_cards=1)
-        
+
         # Verify cards are generated with proper IDs
         assert len(cards) == 1
         assert cards[0].id.startswith("fc-")
@@ -861,7 +827,7 @@ class TestScoreValidation:
         tracker.record_score(topic="test", score=0.0)
         tracker.record_score(topic="test", score=50.0)
         tracker.record_score(topic="test", score=100.0)
-        
+
         progress = tracker.get_topic_progress("test")
         assert progress.attempts == 3
 
@@ -887,43 +853,39 @@ class TestSubjectRetrieverEdgeCases:
     def test_empty_search_results(self, mock_vector_store, mock_knowledge_graph):
         """Retriever should handle empty search results gracefully."""
         mock_vector_store.search_chunks.return_value = []
-        
+
         retriever = SubjectRetriever(
             vector_store=mock_vector_store,
             knowledge_graph=mock_knowledge_graph,
             subject_id="new_subject",
         )
-        
+
         results = retriever.semantic_search("unknown topic", top_k=5)
         assert results == []
 
-    def test_graph_retrieval_nonexistent_concept(
-        self, mock_vector_store, mock_knowledge_graph
-    ):
+    def test_graph_retrieval_nonexistent_concept(self, mock_vector_store, mock_knowledge_graph):
         """Graph retrieval should handle non-existent concepts."""
         mock_knowledge_graph.__contains__ = lambda self, x: False
-        
+
         retriever = SubjectRetriever(
             vector_store=mock_vector_store,
             knowledge_graph=mock_knowledge_graph,
             subject_id="test",
         )
-        
+
         results = retriever.graph_retrieval("nonexistent-concept")
         assert results == []
 
-    def test_hybrid_retrieval_combines_results(
-        self, mock_vector_store, mock_knowledge_graph
-    ):
+    def test_hybrid_retrieval_combines_results(self, mock_vector_store, mock_knowledge_graph):
         """Hybrid retrieval should combine semantic and graph results."""
         retriever = SubjectRetriever(
             vector_store=mock_vector_store,
             knowledge_graph=mock_knowledge_graph,
             subject_id="physics",
         )
-        
+
         results = retriever.hybrid_retrieval("force", top_k=10)
-        
+
         # Should call both search methods
         mock_vector_store.search_chunks.assert_called()
         mock_vector_store.search_concepts.assert_called()

@@ -10,9 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from models.document import Document, InputFormat, Section
-from src.ingestion.text_loader import TextLoadError, TextLoader
-
+from models.document import Document, InputFormat
+from src.ingestion.text_loader import TextLoader, TextLoadError
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -201,9 +200,7 @@ class TestMarkdownLoading:
     def test_code_block_preserved(self, loader, markdown_file):
         result = loader.load(str(markdown_file))
         # Find the Installation section
-        install_section = next(
-            (s for s in result.sections if s.heading == "Installation"), None
-        )
+        install_section = next((s for s in result.sections if s.heading == "Installation"), None)
         assert install_section is not None
         assert "```bash" in install_section.content
         assert "pip install neuroforge" in install_section.content
@@ -211,18 +208,14 @@ class TestMarkdownLoading:
 
     def test_list_items_preserved(self, loader, markdown_file):
         result = loader.load(str(markdown_file))
-        features_section = next(
-            (s for s in result.sections if s.heading == "Features"), None
-        )
+        features_section = next((s for s in result.sections if s.heading == "Features"), None)
         assert features_section is not None
         assert "- Feature one" in features_section.content
         assert "- Feature two" in features_section.content
 
     def test_numbered_list_preserved(self, loader, markdown_file):
         result = loader.load(str(markdown_file))
-        sub_section = next(
-            (s for s in result.sections if s.heading == "Sub-features"), None
-        )
+        sub_section = next((s for s in result.sections if s.heading == "Sub-features"), None)
         assert sub_section is not None
         assert "1. Sub-feature A" in sub_section.content
 
@@ -292,10 +285,7 @@ class TestEdgeCases:
 
     def test_multiple_code_blocks(self, loader):
         text = (
-            "# Demo\n\n"
-            "```python\nx = 1\n```\n\n"
-            "Middle text.\n\n"
-            "```js\nlet y = 2;\n```\n"
+            "# Demo\n\n" "```python\nx = 1\n```\n\n" "Middle text.\n\n" "```js\nlet y = 2;\n```\n"
         )
         result = loader.load_text(text)
         assert "x = 1" in result.content

@@ -19,12 +19,12 @@ from typing import Any, Optional, Union
 
 from models.output import Solution
 from src.llm import LLMClient, LLMProvider
-from src.retrieval.retriever import Retriever
-from src.retrieval.subject_retriever import SubjectRetriever
 from src.prompts.enhanced import (
     SOLUTION_SYSTEM_PROMPT,
     SOLUTION_USER_PROMPT_TEMPLATE,
 )
+from src.retrieval.retriever import Retriever
+from src.retrieval.subject_retriever import SubjectRetriever
 
 logger = logging.getLogger("neuroforge.workflows.solutions")
 
@@ -209,7 +209,7 @@ class SolutionWorkflow:
         # Get depth category and build depth instruction
         depth_category = _get_depth_category(marks)
         depth_instruction = DEPTH_PROMPTS[depth_category]
-        
+
         # Build depth detail for the template
         if depth_category == "brief":
             depth_detail = "provide a focused 2-3 sentence answer"
@@ -224,7 +224,9 @@ class SolutionWorkflow:
             topic=topic,
             marks=marks,
             depth_instruction=depth_instruction,
-            context=context if context else "No specific context available — use general knowledge.",
+            context=(
+                context if context else "No specific context available — use general knowledge."
+            ),
             depth_detail=depth_detail,
         )
 

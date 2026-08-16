@@ -36,17 +36,13 @@ class RelationshipItem(BaseModel):
 
     source: str = Field(..., description="Source concept name")
     target: str = Field(..., description="Target concept name")
-    relationship_type: str = Field(
-        ..., description="Type: prerequisite, related, or part_of"
-    )
+    relationship_type: str = Field(..., description="Type: prerequisite, related, or part_of")
 
 
 class RelationshipListResponse(BaseModel):
     """LLM response model for relationship extraction."""
 
-    relationships: list[RelationshipItem] = Field(
-        ..., description="List of concept relationships"
-    )
+    relationships: list[RelationshipItem] = Field(..., description="List of concept relationships")
 
 
 # ---------------------------------------------------------------------------
@@ -111,9 +107,7 @@ class RelationshipExtractor:
         self.group_size = group_size
         self.provider = provider
 
-    def extract_relationships(
-        self, concepts: list[Concept]
-    ) -> list[ConceptRelationship]:
+    def extract_relationships(self, concepts: list[Concept]) -> list[ConceptRelationship]:
         """Use LLM to identify relationships between concepts.
 
         Processes concepts in groups to stay within context limits.
@@ -129,9 +123,7 @@ class RelationshipExtractor:
             return []
 
         # Build name→id mapping
-        concept_id_map: dict[str, str] = {
-            c.name.lower().strip(): c.id for c in concepts
-        }
+        concept_id_map: dict[str, str] = {c.name.lower().strip(): c.id for c in concepts}
 
         all_relationships: list[ConceptRelationship] = []
 
@@ -171,9 +163,7 @@ class RelationshipExtractor:
 
         # Add edges
         for rel in relationships:
-            if graph.has_node(rel.source_concept) and graph.has_node(
-                rel.target_concept
-            ):
+            if graph.has_node(rel.source_concept) and graph.has_node(rel.target_concept):
                 graph.add_edge(
                     rel.source_concept,
                     rel.target_concept,
@@ -182,9 +172,7 @@ class RelationshipExtractor:
 
         return graph
 
-    def validate_no_cycles(
-        self, graph: nx.DiGraph
-    ) -> tuple[bool, list[list[str]]]:
+    def validate_no_cycles(self, graph: nx.DiGraph) -> tuple[bool, list[list[str]]]:
         """Detect circular prerequisites in the graph.
 
         Only checks edges with relationship_type == "prerequisite".
@@ -234,12 +222,8 @@ class RelationshipExtractor:
             Filtered list of relationships with cycles removed.
         """
         # Separate prerequisite from other relationships
-        prereq_rels = [
-            r for r in relationships if r.relationship_type == "prerequisite"
-        ]
-        other_rels = [
-            r for r in relationships if r.relationship_type != "prerequisite"
-        ]
+        prereq_rels = [r for r in relationships if r.relationship_type == "prerequisite"]
+        other_rels = [r for r in relationships if r.relationship_type != "prerequisite"]
 
         # Build prerequisite-only graph
         prereq_graph = nx.DiGraph()
@@ -257,24 +241,18 @@ class RelationshipExtractor:
                 edge_to_remove = cycle[-1][:2]  # (u, v)
                 prereq_graph.remove_edge(*edge_to_remove)
                 removed_edges.add(edge_to_remove)
-                logger.info(
-                    f"Removed prerequisite edge {edge_to_remove} to break cycle"
-                )
+                logger.info(f"Removed prerequisite edge {edge_to_remove} to break cycle")
             except nx.NetworkXNoCycle:
                 break
 
         # Filter out removed prerequisite relationships
         filtered_prereqs = [
-            r
-            for r in prereq_rels
-            if (r.source_concept, r.target_concept) not in removed_edges
+            r for r in prereq_rels if (r.source_concept, r.target_concept) not in removed_edges
         ]
 
         return filtered_prereqs + other_rels
 
-    def visualize_graph(
-        self, graph: nx.DiGraph, output_path: Optional[str] = None
-    ) -> None:
+    def visualize_graph(self, graph: nx.DiGraph, output_path: Optional[str] = None) -> None:
         """Visualize the relationship graph using matplotlib.
 
         Edges are colored by relationship type:
@@ -299,14 +277,8 @@ class RelationshipExtractor:
         pos = nx.spring_layout(graph, seed=42, k=2.0)
 
         # Draw nodes with labels
-        labels = {
-            node: data.get("name", node)
-            for node, data in graph.nodes(data=True)
-        }
-        nx.draw_networkx_nodes(
-            graph, pos, ax=ax, node_color="lightblue",
-            node_size=800, alpha=0.9
-        )
+        labels = {node: data.get("name", node) for node, data in graph.nodes(data=True)}
+        nx.draw_networkx_nodes(graph, pos, ax=ax, node_color="lightblue", node_size=800, alpha=0.9)
         nx.draw_networkx_labels(graph, pos, labels=labels, ax=ax, font_size=8)
 
         # Color edges by type
@@ -324,9 +296,14 @@ class RelationshipExtractor:
             ]
             if edges:
                 nx.draw_networkx_edges(
-                    graph, pos, edgelist=edges, ax=ax,
-                    edge_color=color, arrows=True,
-                    arrowsize=15, alpha=0.7,
+                    graph,
+                    pos,
+                    edgelist=edges,
+                    ax=ax,
+                    edge_color=color,
+                    arrows=True,
+                    arrowsize=15,
+                    alpha=0.7,
                     connectionstyle="arc3,rad=0.1",
                 )
 
@@ -337,8 +314,7 @@ class RelationshipExtractor:
             mpatches.Patch(color=color, label=rel_type)
             for rel_type, color in edge_colors.items()
             if any(
-                data.get("relationship_type") == rel_type
-                for _, _, data in graph.edges(data=True)
+                data.get("relationship_type") == rel_type for _, _, data in graph.edges(data=True)
             )
         ]
         if legend_patches:
@@ -358,9 +334,7 @@ class RelationshipExtractor:
     # Private helpers
     # -----------------------------------------------------------------------
 
-    def _group_concepts(
-        self, concepts: list[Concept]
-    ) -> list[list[Concept]]:
+    def _group_concepts(self, concepts: list[Concept]) -> list[list[Concept]]:
         """Split concepts into groups of self.group_size."""
         groups = []
         for i in range(0, len(concepts), self.group_size):
@@ -374,13 +348,9 @@ class RelationshipExtractor:
     ) -> list[ConceptRelationship]:
         """Extract relationships for a single group of concepts via LLM."""
         # Build concept details string
-        concept_details = "\n".join(
-            f"- {c.name}: {c.definition}" for c in concepts
-        )
+        concept_details = "\n".join(f"- {c.name}: {c.definition}" for c in concepts)
 
-        prompt = RELATIONSHIP_EXTRACTION_PROMPT.format(
-            concept_details=concept_details
-        )
+        prompt = RELATIONSHIP_EXTRACTION_PROMPT.format(concept_details=concept_details)
 
         try:
             result, _usage = self.llm_client.generate_json(

@@ -1,15 +1,51 @@
 [tool.black]
-line-length = 88
+line-length = 100
 target-version = ["py311"]
+exclude = '''
+/(
+    \.git
+    | \.venv
+    | __pycache__
+    | data
+    | chroma_db
+    | notebooks
+    | reference
+    | \.pytest_cache
+    | \.ruff_cache
+    | node_modules
+)/
+'''
 
 [tool.isort]
 profile = "black"
-line_length = 88
+line_length = 100
+skip = [".git", ".venv", "__pycache__", "data", "chroma_db", "notebooks", "reference", "node_modules"]
 
 [tool.ruff]
-line-length = 88
+line-length = 100
 target-version = "py311"
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "data",
+    "chroma_db",
+    "notebooks",
+    "reference",
+    ".pytest_cache",
+    ".ruff_cache",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+ignore = [
+    "E501",  # Line too long - let black handle formatting
+    "F541",  # f-string without placeholders (intentional in some cases)
+    "E741",  # Ambiguous variable name (l, O, I) - context dependent
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F841"]  # Unused variables OK in tests (fixtures, etc.)
+"tests/conftest.py" = ["E402"]  # Import after sys.path modification is intentional
+"__init__.py" = ["F401"]  # Unused imports OK in __init__ files
 

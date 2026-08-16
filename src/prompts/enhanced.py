@@ -85,7 +85,7 @@ EXAMPLE OF HIGH-QUALITY MCQ:
 Generate exactly {num_questions} questions now. Respond with ONLY the JSON object."""
 
 # =============================================================================
-# FLASHCARD GENERATION - Enhanced Prompts  
+# FLASHCARD GENERATION - Enhanced Prompts
 # =============================================================================
 
 FLASHCARD_SYSTEM_PROMPT = """You are MemoryMaster, an expert in cognitive science and spaced repetition learning systems. You've helped millions of students master difficult subjects through perfectly crafted flashcards.

@@ -4,16 +4,12 @@ Tests for SubjectManager CRUD operations, subject-scoped storage,
 subject-scoped features, and migration functionality.
 """
 
-import json
-import os
-import tempfile
 from pathlib import Path
 
 import pytest
 
 from models.subject import (
     Subject,
-    SubjectDocument,
     SubjectSettings,
     SubjectStatus,
     SubjectSummary,
@@ -25,7 +21,6 @@ from src.subjects.manager import (
     SubjectNotFoundError,
 )
 from src.subjects.storage import DEFAULT_SUBJECT_ID, SubjectStorage
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -84,7 +79,6 @@ class TestSubjectModel:
         assert subject.color == "#FF5733"
         assert subject.icon == "📚"
         assert subject.settings.default_quiz_count == 20
-
 
     def test_name_validation_empty(self):
         """Subject name cannot be empty."""
@@ -149,7 +143,7 @@ class TestSubjectManagerInit:
         # Create first manager and add a subject
         manager1 = SubjectManager(data_dir=tmp_data_dir)
         manager1.create_subject("Physics")
-        
+
         # Create second manager, should load existing subjects
         manager2 = SubjectManager(data_dir=tmp_data_dir)
         subjects = manager2.list_subjects()
@@ -199,7 +193,6 @@ class TestCreateSubject:
         with pytest.raises(SubjectExistsError):
             manager.create_subject("Physics")
 
-
     def test_create_duplicate_name_case_insensitive(self, manager):
         """Duplicate name check is case-insensitive."""
         manager.create_subject("Physics")
@@ -212,7 +205,7 @@ class TestCreateSubject:
         """Created subject persists across manager instances."""
         manager1 = SubjectManager(data_dir=tmp_data_dir)
         subject = manager1.create_subject("History")
-        
+
         manager2 = SubjectManager(data_dir=tmp_data_dir)
         loaded = manager2.get_subject(subject.id)
         assert loaded.name == "History"
@@ -244,13 +237,12 @@ class TestReadSubject:
         assert manager.subject_exists(subject.id) is True
         assert manager.subject_exists("fake-id") is False
 
-
     def test_list_subjects_active_only(self, manager):
         """List subjects returns only active by default."""
         manager.create_subject("Active1")
         archived = manager.create_subject("Archived1")
         manager.archive_subject(archived.id)
-        
+
         subjects = manager.list_subjects()
         names = [s.name for s in subjects]
         assert "Active1" in names
@@ -261,7 +253,7 @@ class TestReadSubject:
         manager.create_subject("Active2")
         archived = manager.create_subject("Archived2")
         manager.archive_subject(archived.id)
-        
+
         subjects = manager.list_subjects(include_archived=True)
         names = [s.name for s in subjects]
         assert "Active2" in names
@@ -291,18 +283,13 @@ class TestUpdateSubject:
     def test_update_description(self, manager):
         """Update subject description."""
         subject = manager.create_subject("DescTest")
-        updated = manager.update_subject(
-            subject.id, description="New description"
-        )
+        updated = manager.update_subject(subject.id, description="New description")
         assert updated.description == "New description"
-
 
     def test_update_color_and_icon(self, manager):
         """Update subject color and icon."""
         subject = manager.create_subject("StyleTest")
-        updated = manager.update_subject(
-            subject.id, color="#FF0000", icon="🎨"
-        )
+        updated = manager.update_subject(subject.id, color="#FF0000", icon="🎨")
         assert updated.color == "#FF0000"
         assert updated.icon == "🎨"
 
@@ -321,6 +308,7 @@ class TestUpdateSubject:
     def test_update_updates_timestamp(self, manager):
         """Update changes updated_at timestamp."""
         import time
+
         subject = manager.create_subject("TimestampTest")
         original_updated = subject.updated_at
         time.sleep(0.1)
@@ -332,7 +320,7 @@ class TestUpdateSubject:
         manager1 = SubjectManager(data_dir=tmp_data_dir)
         subject = manager1.create_subject("PersistTest")
         manager1.update_subject(subject.id, name="UpdatedName")
-        
+
         manager2 = SubjectManager(data_dir=tmp_data_dir)
         loaded = manager2.get_subject(subject.id)
         assert loaded.name == "UpdatedName"
@@ -358,7 +346,7 @@ class TestDeleteSubject:
         subject = manager.create_subject("DirDelete")
         subject_dir = Path(tmp_data_dir) / "subjects" / subject.id
         assert subject_dir.exists()
-        
+
         manager.delete_subject(subject.id)
         assert not subject_dir.exists()
 
@@ -411,7 +399,7 @@ class TestArchiveRestore:
         """Archived subjects not in default list."""
         subject = manager.create_subject("ArchivedTest")
         manager.archive_subject(subject.id)
-        
+
         subjects = manager.list_subjects()
         ids = [s.id for s in subjects]
         assert subject.id not in ids
@@ -420,9 +408,9 @@ class TestArchiveRestore:
         """Archived subject data is preserved."""
         subject = manager.create_subject("DataPreserve")
         subject_dir = Path(tmp_data_dir) / "subjects" / subject.id
-        
+
         manager.archive_subject(subject.id)
-        
+
         # Data should still exist
         assert subject_dir.exists()
         assert (subject_dir / "knowledge_graph.json").exists()
@@ -466,7 +454,7 @@ class TestDocumentManagement:
             filename="file2.docx",
             file_type="docx",
         )
-        
+
         docs = manager.list_documents(subject.id)
         assert len(docs) == 2
         filenames = [d.filename for d in docs]
@@ -482,10 +470,10 @@ class TestDocumentManagement:
             filename="delete_me.pdf",
             file_type="pdf",
         )
-        
+
         result = manager.delete_document(subject.id, "doc-to-delete")
         assert result is True
-        
+
         docs = manager.list_documents(subject.id)
         assert len(docs) == 0
 
@@ -517,7 +505,7 @@ class TestSubjectStats:
             chunk_count=15,
             concept_count=8,
         )
-        
+
         stats = manager.get_subject_stats(subject.id)
         assert stats["document_count"] == 1
         assert stats["chunk_count"] == 15
@@ -528,10 +516,10 @@ class TestSubjectStats:
         # Add docs to different subjects
         sub1 = manager.create_subject("GlobalStats1")
         sub2 = manager.create_subject("GlobalStats2")
-        
+
         manager.add_document(sub1.id, "d1", "f1.pdf", "pdf", chunk_count=10)
         manager.add_document(sub2.id, "d2", "f2.pdf", "pdf", chunk_count=20)
-        
+
         stats = manager.get_global_stats()
         assert stats["subject_count"] >= 2  # At least our subjects + default
         assert stats["document_count"] >= 2
@@ -564,11 +552,11 @@ class TestSubjectStorage:
         with pytest.raises(ValueError) as exc_info:
             storage.get_subject_dir("../../../etc")
         assert "path traversal" in str(exc_info.value).lower()
-        
+
         with pytest.raises(ValueError) as exc_info:
             storage.get_subject_dir("..\\..\\windows")
         assert "path traversal" in str(exc_info.value).lower()
-        
+
     def test_get_collection_names(self, storage):
         """Get ChromaDB collection names for subject."""
         # Note: hyphens are converted to underscores for valid collection names
@@ -582,7 +570,7 @@ class TestSubjectStorage:
         """Initialize empty subject files."""
         storage.initialize_subject_files("init-test")
         subject_dir = Path(tmp_data_dir) / "subjects" / "init-test"
-        
+
         assert (subject_dir / "knowledge_graph.json").exists()
         assert (subject_dir / "learning_state.json").exists()
         assert (subject_dir / "sr_state.json").exists()
@@ -644,12 +632,13 @@ class TestActivityTracking:
     def test_update_activity(self, manager):
         """Update activity updates timestamp."""
         import time
+
         subject = manager.create_subject("ActivityTest")
         original_activity = subject.last_activity_at
-        
+
         time.sleep(0.1)
         manager.update_activity(subject.id)
-        
+
         updated = manager.get_subject(subject.id)
         assert updated.last_activity_at is not None
         if original_activity:
@@ -658,14 +647,13 @@ class TestActivityTracking:
     def test_add_document_updates_activity(self, manager):
         """Adding document updates subject activity."""
         import time
+
         subject = manager.create_subject("DocActivityTest")
         original_activity = subject.last_activity_at
-        
+
         time.sleep(0.1)
-        manager.add_document(
-            subject.id, "doc-1", "test.pdf", "pdf"
-        )
-        
+        manager.add_document(subject.id, "doc-1", "test.pdf", "pdf")
+
         updated = manager.get_subject(subject.id)
         assert updated.last_activity_at is not None
         if original_activity:
@@ -683,7 +671,7 @@ class TestSubjectIntegration:
     def test_full_subject_lifecycle(self, tmp_data_dir):
         """Test complete subject lifecycle."""
         manager = SubjectManager(data_dir=tmp_data_dir)
-        
+
         # Create
         subject = manager.create_subject(
             name="Lifecycle Test",
@@ -692,7 +680,7 @@ class TestSubjectIntegration:
             icon="🔬",
         )
         assert manager.subject_exists(subject.id)
-        
+
         # Update
         updated = manager.update_subject(
             subject.id,
@@ -700,38 +688,37 @@ class TestSubjectIntegration:
             description="Modified description",
         )
         assert updated.name == "Updated Lifecycle"
-        
+
         # Add documents
         manager.add_document(subject.id, "doc-1", "file.pdf", "pdf")
         docs = manager.list_documents(subject.id)
         assert len(docs) == 1
-        
+
         # Archive
         archived = manager.archive_subject(subject.id)
         assert archived.status == SubjectStatus.ARCHIVED
-        
+
         # Restore
         restored = manager.restore_subject(subject.id)
         assert restored.status == SubjectStatus.ACTIVE
-        
+
         # Delete
         manager.delete_subject(subject.id)
         assert not manager.subject_exists(subject.id)
-
 
     def test_multiple_subjects_isolation(self, manager):
         """Test that subjects are properly isolated."""
         sub1 = manager.create_subject("Subject1")
         sub2 = manager.create_subject("Subject2")
-        
+
         # Add documents to different subjects
         manager.add_document(sub1.id, "doc-1", "sub1_file.pdf", "pdf")
         manager.add_document(sub2.id, "doc-2", "sub2_file.pdf", "pdf")
-        
+
         # Each subject should only see its own documents
         docs1 = manager.list_documents(sub1.id)
         docs2 = manager.list_documents(sub2.id)
-        
+
         assert len(docs1) == 1
         assert len(docs2) == 1
         assert docs1[0].filename == "sub1_file.pdf"
@@ -740,18 +727,18 @@ class TestSubjectIntegration:
     def test_concurrent_subject_operations(self, tmp_data_dir):
         """Test concurrent operations on different subjects."""
         manager1 = SubjectManager(data_dir=tmp_data_dir)
-        
+
         # Create subject with first manager
         sub1 = manager1.create_subject("ConcurrentTest1")
-        
+
         # Second manager should load the subject (needs to be created after save)
         manager2 = SubjectManager(data_dir=tmp_data_dir)
         loaded = manager2.get_subject(sub1.id)
         assert loaded.name == "ConcurrentTest1"
-        
+
         # Update with manager1
         manager1.update_subject(sub1.id, description="Update from manager1")
-        
+
         # Reload and verify with a new manager instance
         manager3 = SubjectManager(data_dir=tmp_data_dir)
         final = manager3.get_subject(sub1.id)

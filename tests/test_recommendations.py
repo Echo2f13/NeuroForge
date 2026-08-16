@@ -6,14 +6,12 @@ various learning states.
 """
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
 
 import pytest
 
+from models import Concept, ConceptRelationship, Difficulty
 from src.memory import ProgressTracker, RecommendationEngine, SpacedRepetitionScheduler
 from src.store import KnowledgeGraph
-from models import Concept, ConceptRelationship, Difficulty
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

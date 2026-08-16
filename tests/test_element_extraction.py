@@ -3,8 +3,7 @@
 Tests formula, example, date, and people extraction with mocked LLM calls.
 """
 
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -18,7 +17,6 @@ from src.extraction.elements import (
     PersonListResponse,
 )
 from src.llm import LLMClient, LLMProvider
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -90,9 +88,7 @@ class TestElementExtractorInit:
         assert extractor.batch_size == 3
 
     def test_custom_provider(self, mock_llm_client):
-        extractor = ElementExtractor(
-            llm_client=mock_llm_client, provider=LLMProvider.GITHUB
-        )
+        extractor = ElementExtractor(llm_client=mock_llm_client, provider=LLMProvider.GITHUB)
         assert extractor.provider == LLMProvider.GITHUB
 
     def test_stores_llm_client(self, mock_llm_client):
@@ -134,9 +130,7 @@ class TestExtractFormulae:
         # Should match chunk-physics-1 because "e = mc^2" is in its content
         assert result[0].source_chunk_id == "chunk-physics-1"
 
-    def test_multiple_formulae_extracted(
-        self, extractor, mock_llm_client, sample_chunks
-    ):
+    def test_multiple_formulae_extracted(self, extractor, mock_llm_client, sample_chunks):
         mock_response = FormulaListResponse(
             formulae=[
                 {
@@ -159,17 +153,13 @@ class TestExtractFormulae:
         assert result[0].expression == "E = mc^2"
         assert result[1].expression == "F = G(m1*m2)/r^2"
 
-    def test_handles_llm_failure_gracefully(
-        self, extractor, mock_llm_client, sample_chunks
-    ):
+    def test_handles_llm_failure_gracefully(self, extractor, mock_llm_client, sample_chunks):
         mock_llm_client.generate_json.side_effect = Exception("LLM error")
 
         result = extractor.extract_formulae(sample_chunks)
         assert result == []
 
-    def test_fallback_source_chunk_when_no_match(
-        self, extractor, mock_llm_client, sample_chunks
-    ):
+    def test_fallback_source_chunk_when_no_match(self, extractor, mock_llm_client, sample_chunks):
         mock_response = FormulaListResponse(
             formulae=[
                 {
@@ -221,9 +211,7 @@ class TestExtractExamples:
         assert result[0].related_concepts == ["Gravity", "Inverse Square Law"]
         assert result[0].source_chunk_id == "chunk-physics-2"
 
-    def test_handles_llm_failure_gracefully(
-        self, extractor, mock_llm_client, sample_chunks
-    ):
+    def test_handles_llm_failure_gracefully(self, extractor, mock_llm_client, sample_chunks):
         mock_llm_client.generate_json.side_effect = Exception("LLM error")
 
         result = extractor.extract_examples(sample_chunks)
@@ -240,9 +228,7 @@ class TestExtractDates:
         result = extractor.extract_dates([])
         assert result == []
 
-    def test_extracts_dates_with_significance(
-        self, extractor, mock_llm_client, sample_chunks
-    ):
+    def test_extracts_dates_with_significance(self, extractor, mock_llm_client, sample_chunks):
         mock_response = DateListResponse(
             dates=[
                 {
@@ -268,9 +254,7 @@ class TestExtractDates:
         assert result[1].date == "1687"
         assert result[1].source_chunk_id == "chunk-physics-2"
 
-    def test_handles_llm_failure_gracefully(
-        self, extractor, mock_llm_client, sample_chunks
-    ):
+    def test_handles_llm_failure_gracefully(self, extractor, mock_llm_client, sample_chunks):
         mock_llm_client.generate_json.side_effect = Exception("LLM error")
 
         result = extractor.extract_dates(sample_chunks)
@@ -287,9 +271,7 @@ class TestExtractPeople:
         result = extractor.extract_people([])
         assert result == []
 
-    def test_extracts_people_with_contributions(
-        self, extractor, mock_llm_client, sample_chunks
-    ):
+    def test_extracts_people_with_contributions(self, extractor, mock_llm_client, sample_chunks):
         mock_response = PersonListResponse(
             people=[
                 {
@@ -322,9 +304,7 @@ class TestExtractPeople:
         assert result[2].name == "Marie Curie"
         assert result[2].source_chunk_id == "chunk-physics-3"
 
-    def test_handles_llm_failure_gracefully(
-        self, extractor, mock_llm_client, sample_chunks
-    ):
+    def test_handles_llm_failure_gracefully(self, extractor, mock_llm_client, sample_chunks):
         mock_llm_client.generate_json.side_effect = Exception("LLM error")
 
         result = extractor.extract_people(sample_chunks)
@@ -346,9 +326,7 @@ class TestExtractAll:
             "people": [],
         }
 
-    def test_extract_all_combines_results(
-        self, extractor, mock_llm_client, sample_chunks
-    ):
+    def test_extract_all_combines_results(self, extractor, mock_llm_client, sample_chunks):
         # Set up sequential returns for each extraction type
         formula_resp = FormulaListResponse(
             formulae=[

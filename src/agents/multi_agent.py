@@ -17,7 +17,7 @@ The MultiAgentOrchestrator coordinates these agents in a sequential pipeline:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from src.llm import LLMClient
 from src.memory.progress import ProgressTracker
@@ -184,9 +184,7 @@ class TeacherAgent(BaseAgent):
 
     def __init__(self, llm_client: LLMClient, retriever: Retriever) -> None:
         self.chat_tutor = ChatTutor(retriever=retriever, llm_client=llm_client)
-        self.notes_workflow = RevisionNotesWorkflow(
-            retriever=retriever, llm_client=llm_client
-        )
+        self.notes_workflow = RevisionNotesWorkflow(retriever=retriever, llm_client=llm_client)
 
     def run(self, input: dict[str, Any]) -> dict[str, Any]:
         """Explain a concept or generate revision notes.
@@ -247,9 +245,7 @@ class ExaminerAgent(BaseAgent):
 
     def __init__(self, llm_client: LLMClient, retriever: Retriever) -> None:
         self.quiz_workflow = QuizWorkflow(llm_client=llm_client, retriever=retriever)
-        self.flashcard_workflow = FlashcardWorkflow(
-            retriever=retriever, llm_client=llm_client
-        )
+        self.flashcard_workflow = FlashcardWorkflow(retriever=retriever, llm_client=llm_client)
 
     def run(self, input: dict[str, Any]) -> dict[str, Any]:
         """Generate quiz questions or flashcards.
@@ -403,7 +399,6 @@ class MemoryAgent(BaseAgent):
         Returns:
             Dict with "updated" (bool) and progress info.
         """
-        intent = input.get("intent", "")
         topic = input.get("topic", "")
         score = input.get("score")
         card_id = input.get("card_id")
@@ -487,9 +482,7 @@ class MultiAgentOrchestrator:
         self.teacher = TeacherAgent(llm_client=llm_client, retriever=retriever)
         self.examiner = ExaminerAgent(llm_client=llm_client, retriever=retriever)
         self.reviewer = ReviewerAgent()
-        self.memory = MemoryAgent(
-            progress_tracker=progress_tracker, scheduler=scheduler
-        )
+        self.memory = MemoryAgent(progress_tracker=progress_tracker, scheduler=scheduler)
 
     def process(self, user_input: str) -> dict[str, Any]:
         """Process a user request through the full agent pipeline.
@@ -529,10 +522,12 @@ class MultiAgentOrchestrator:
         # Step 4: Update memory if applicable
         memory_update = None
         if intent in ("quiz", "flashcard"):
-            memory_update = self.memory.run({
-                "intent": intent,
-                "topic": topic,
-            })
+            memory_update = self.memory.run(
+                {
+                    "intent": intent,
+                    "topic": topic,
+                }
+            )
 
         return {
             "intent": intent,
@@ -542,9 +537,7 @@ class MultiAgentOrchestrator:
             "memory_update": memory_update,
         }
 
-    def _route(
-        self, intent: str, parameters: dict[str, Any], topic: str
-    ) -> dict[str, Any]:
+    def _route(self, intent: str, parameters: dict[str, Any], topic: str) -> dict[str, Any]:
         """Route to the appropriate domain agent based on intent.
 
         Args:

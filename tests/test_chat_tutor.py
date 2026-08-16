@@ -4,12 +4,11 @@ Tests the RAG pipeline, conversation history management, source citation,
 follow-up handling, and out-of-scope detection with mocked LLM and retriever.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from src.workflows.chat_tutor import ChatTutor, MAX_HISTORY_EXCHANGES
-
+from src.workflows.chat_tutor import MAX_HISTORY_EXCHANGES, ChatTutor
 
 # ---------------------------------------------------------------------------
 # Fixtures

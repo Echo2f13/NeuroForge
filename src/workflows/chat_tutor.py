@@ -17,12 +17,12 @@ import logging
 from typing import Any, Optional, Union
 
 from src.llm import LLMClient
-from src.retrieval.retriever import Retriever
-from src.retrieval.subject_retriever import SubjectRetriever
 from src.prompts.enhanced import (
     CHAT_TUTOR_SYSTEM_PROMPT,
     CHAT_TUTOR_USER_PROMPT_TEMPLATE,
 )
+from src.retrieval.retriever import Retriever
+from src.retrieval.subject_retriever import SubjectRetriever
 
 logger = logging.getLogger("neuroforge.workflows.chat_tutor")
 
@@ -44,8 +44,8 @@ class ChatTutor:
     """
 
     def __init__(
-        self, 
-        retriever: Union[Retriever, SubjectRetriever], 
+        self,
+        retriever: Union[Retriever, SubjectRetriever],
         llm_client: LLMClient,
         subject_id: Optional[str] = None,
     ) -> None:
@@ -123,18 +123,14 @@ class ChatTutor:
         enriched_query = self._build_retrieval_query(question)
 
         try:
-            chunks = self.retriever.semantic_search(
-                query=enriched_query, top_k=5
-            )
+            chunks = self.retriever.semantic_search(query=enriched_query, top_k=5)
         except Exception as e:
             logger.warning(f"Retrieval failed: {e}. Proceeding with no context.")
             chunks = []
 
         return chunks
 
-    def _generate(
-        self, question: str, chunks: list[dict]
-    ) -> tuple[str, bool]:
+    def _generate(self, question: str, chunks: list[dict]) -> tuple[str, bool]:
         """Stage 2: Generate an answer grounded in retrieved chunks.
 
         Uses enhanced prompts for maximum quality output.
@@ -148,10 +144,10 @@ class ChatTutor:
         """
         # Build history section for the enhanced prompt
         history_section = self._build_history_section()
-        
+
         # Build source section from chunks
         source_section = self._build_source_section(chunks)
-        
+
         # Build the enhanced user prompt
         user_prompt = CHAT_TUTOR_USER_PROMPT_TEMPLATE.format(
             history_section=history_section,
@@ -169,8 +165,7 @@ class ChatTutor:
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
             return (
-                "I'm sorry, I encountered an error generating a response. "
-                "Please try again.",
+                "I'm sorry, I encountered an error generating a response. " "Please try again.",
                 False,
             )
 
@@ -202,27 +197,27 @@ class ChatTutor:
         """Build the conversation history section for the enhanced prompt."""
         if not self._history:
             return "No previous conversation."
-        
+
         parts: list[str] = []
-        recent = self._history[-(MAX_HISTORY_EXCHANGES * 2):]
+        recent = self._history[-(MAX_HISTORY_EXCHANGES * 2) :]
         for msg in recent:
             role_label = "Student" if msg["role"] == "user" else "Tutor"
             parts.append(f"{role_label}: {msg['content']}")
-        
+
         return "\n".join(parts)
 
     def _build_source_section(self, chunks: list[dict]) -> str:
         """Build the source material section for the enhanced prompt."""
         if not chunks:
             return "No relevant material found in the knowledge base."
-        
+
         parts: list[str] = []
         for chunk in chunks:
             chunk_id = chunk.get("id", "unknown")
             content = chunk.get("content", "")
             if content:
                 parts.append(f"[{chunk_id}]: {content}")
-        
+
         return "\n\n".join(parts)
 
     def _build_retrieval_query(self, question: str) -> str:

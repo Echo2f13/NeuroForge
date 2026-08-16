@@ -30,29 +30,21 @@ def sample_text():
 def sample_chunks():
     """Sample chunks for testing."""
     from models import Chunk, ChunkMetadata
-    
+
     return [
         Chunk(
             id="chunk-1",
             content="Steel is an alloy of iron and carbon with excellent strength.",
             document_id="doc-1",
             chunk_index=0,
-            metadata=ChunkMetadata(
-                start_char=0,
-                end_char=60,
-                token_count=12
-            )
+            metadata=ChunkMetadata(start_char=0, end_char=60, token_count=12),
         ),
         Chunk(
             id="chunk-2",
             content="Heat treatment alters the physical properties of metals.",
             document_id="doc-1",
             chunk_index=1,
-            metadata=ChunkMetadata(
-                start_char=61,
-                end_char=120,
-                token_count=10
-            )
+            metadata=ChunkMetadata(start_char=61, end_char=120, token_count=10),
         ),
     ]
 
@@ -61,7 +53,7 @@ def sample_chunks():
 def sample_concepts():
     """Sample concepts for testing."""
     from models import Concept, Difficulty
-    
+
     return [
         Concept(
             id="concept-1",
@@ -71,7 +63,7 @@ def sample_concepts():
             difficulty=Difficulty.EASY,
             prerequisites=[],
             keywords=["iron", "carbon", "alloy"],
-            source_chunk_ids=["chunk-1"]
+            source_chunk_ids=["chunk-1"],
         ),
         Concept(
             id="concept-2",
@@ -81,6 +73,6 @@ def sample_concepts():
             difficulty=Difficulty.MEDIUM,
             prerequisites=["concept-1"],
             keywords=["heating", "cooling", "properties"],
-            source_chunk_ids=["chunk-2"]
+            source_chunk_ids=["chunk-2"],
         ),
     ]

@@ -4,15 +4,13 @@ Tests the QuizWorkflow pipeline (retrieve → generate → validate → format)
 with mocked LLM and Retriever dependencies.
 """
 
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from models.knowledge import Difficulty
 from models.output import QuizQuestion
-from src.workflows.quiz import QuizWorkflow, _QuizBatch, DEFAULT_QUESTION_TYPES
-
+from src.workflows.quiz import QuizWorkflow, _QuizBatch
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -180,9 +178,7 @@ class TestQuizWorkflowGenerate:
 class TestRetrievalStage:
     def test_retrieve_with_topic_only(self, workflow, mock_retriever):
         chunks = workflow._retrieve("photosynthesis", None)
-        mock_retriever.semantic_search.assert_called_once_with(
-            query="photosynthesis", top_k=10
-        )
+        mock_retriever.semantic_search.assert_called_once_with(query="photosynthesis", top_k=10)
         assert len(chunks) == 2
 
     def test_retrieve_with_difficulty(self, workflow, mock_retriever):

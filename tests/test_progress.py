@@ -5,15 +5,12 @@ persistence, and overall stats with simulated quiz sequences.
 """
 
 import json
-import os
-import tempfile
 from pathlib import Path
 
 import pytest
 
-from models.learning import LearningState, TopicProgress
+from models.learning import LearningState
 from src.memory import ProgressTracker
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -47,9 +44,7 @@ class TestInit:
         # Create a state file first
         state = LearningState()
         state.update_topic_score("math", 80.0)
-        Path(tmp_state_file).write_text(
-            state.model_dump_json(indent=2), encoding="utf-8"
-        )
+        Path(tmp_state_file).write_text(state.model_dump_json(indent=2), encoding="utf-8")
 
         tracker = ProgressTracker(state_file=tmp_state_file)
         assert "math" in tracker.state.topic_progress

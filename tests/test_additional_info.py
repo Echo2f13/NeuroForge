@@ -14,7 +14,6 @@ from src.workflows.additional_info import (
     _AdditionalInfoOutput,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -120,16 +119,12 @@ class TestAdditionalInfoWorkflowGenerate:
         """Each list should have 3-5 items."""
         result = workflow.generate(topic="neural networks")
         for key, value in result.items():
-            assert 3 <= len(value) <= 5, (
-                f"{key} has {len(value)} items, expected 3-5"
-            )
+            assert 3 <= len(value) <= 5, f"{key} has {len(value)} items, expected 3-5"
 
     def test_generate_uses_semantic_search(self, workflow, mock_retriever):
         """Generate uses semantic_search to retrieve context."""
         workflow.generate(topic="neural networks")
-        mock_retriever.semantic_search.assert_called_once_with(
-            query="neural networks", top_k=8
-        )
+        mock_retriever.semantic_search.assert_called_once_with(query="neural networks", top_k=8)
 
     def test_generate_calls_llm_with_correct_model(self, workflow, mock_llm_client):
         """LLM is called with _AdditionalInfoOutput as response model."""
@@ -150,8 +145,7 @@ class TestAdditionalInfoWorkflowGenerate:
         # Check that applications mention relevant terms
         all_text = " ".join(result["applications"])
         assert any(
-            term in all_text.lower()
-            for term in ["image", "language", "vehicle", "recommendation"]
+            term in all_text.lower() for term in ["image", "language", "vehicle", "recommendation"]
         )
 
 
@@ -166,9 +160,7 @@ class TestRetrieveStep:
     def test_retrieve_calls_semantic_search(self, workflow, mock_retriever):
         """Retrieve uses semantic_search with top_k=8."""
         results = workflow._retrieve("deep learning")
-        mock_retriever.semantic_search.assert_called_once_with(
-            query="deep learning", top_k=8
-        )
+        mock_retriever.semantic_search.assert_called_once_with(query="deep learning", top_k=8)
         assert len(results) == 3
 
     def test_retrieve_returns_chunk_list(self, workflow):
@@ -196,7 +188,10 @@ class TestFormatStep:
         )
         result = workflow._format(raw)
         assert set(result.keys()) == {
-            "applications", "industry_uses", "common_mistakes", "interview_questions"
+            "applications",
+            "industry_uses",
+            "common_mistakes",
+            "interview_questions",
         }
 
     def test_format_truncates_to_max_five(self, workflow):

@@ -13,7 +13,6 @@ import pytest
 
 from src.memory import SpacedRepetitionScheduler
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -356,9 +355,9 @@ class TestSimulatedDays:
         with patch("src.memory.spaced_repetition.date") as mock_date:
             mock_date.today.return_value = day1
             mock_date.fromisoformat = date.fromisoformat
-            sched.review_card("easy", 5)   # rep=2, interval=6
+            sched.review_card("easy", 5)  # rep=2, interval=6
             sched.review_card("medium", 4)  # rep=2, interval=6
-            sched.review_card("hard", 5)    # rep=1, interval=1
+            sched.review_card("hard", 5)  # rep=1, interval=1
 
         # Day 2: only hard should be due (interval=1 from day1)
         # easy: interval=6, due day1+6=day7

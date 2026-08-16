@@ -27,7 +27,20 @@ Sub-packages:
 # ---------------------------------------------------------------------------
 # LLM Client
 # ---------------------------------------------------------------------------
-from src.llm import LLMClient
+# ---------------------------------------------------------------------------
+# Agents — Multi-agent orchestration
+# ---------------------------------------------------------------------------
+from src.agents import MultiAgentOrchestrator
+
+# ---------------------------------------------------------------------------
+# Extraction — Knowledge extraction from chunks
+# ---------------------------------------------------------------------------
+from src.extraction import (
+    ElementExtractor,
+    MetadataExtractor,
+    RelationshipExtractor,
+    TopicExtractor,
+)
 
 # ---------------------------------------------------------------------------
 # Ingestion — Document loaders and ingest orchestrator
@@ -41,44 +54,7 @@ from src.ingestion import (
     YouTubeLoader,
     ingest,
 )
-
-# ---------------------------------------------------------------------------
-# Processing — Text cleaning, chunking, structure extraction
-# ---------------------------------------------------------------------------
-from src.processing import DocumentChunker, StructureExtractor, TextCleaner
-
-# ---------------------------------------------------------------------------
-# Extraction — Knowledge extraction from chunks
-# ---------------------------------------------------------------------------
-from src.extraction import (
-    ElementExtractor,
-    MetadataExtractor,
-    RelationshipExtractor,
-    TopicExtractor,
-)
-
-# ---------------------------------------------------------------------------
-# Store — Vector store and knowledge graph
-# ---------------------------------------------------------------------------
-from src.store import KnowledgeGraph, VectorStore
-
-# ---------------------------------------------------------------------------
-# Retrieval — Hybrid retriever
-# ---------------------------------------------------------------------------
-from src.retrieval import Retriever
-
-# ---------------------------------------------------------------------------
-# Workflows — Content generation pipelines
-# ---------------------------------------------------------------------------
-from src.workflows import (
-    AdditionalInfoWorkflow,
-    ChatTutor,
-    FlashcardWorkflow,
-    MindMapWorkflow,
-    QuizWorkflow,
-    RevisionNotesWorkflow,
-    SolutionWorkflow,
-)
+from src.llm import LLMClient
 
 # ---------------------------------------------------------------------------
 # Memory — Learning progress and adaptive difficulty
@@ -96,9 +72,32 @@ from src.memory import (
 from src.planner import IntentRouter
 
 # ---------------------------------------------------------------------------
-# Agents — Multi-agent orchestration
+# Processing — Text cleaning, chunking, structure extraction
 # ---------------------------------------------------------------------------
-from src.agents import MultiAgentOrchestrator
+from src.processing import DocumentChunker, StructureExtractor, TextCleaner
+
+# ---------------------------------------------------------------------------
+# Retrieval — Hybrid retriever
+# ---------------------------------------------------------------------------
+from src.retrieval import Retriever
+
+# ---------------------------------------------------------------------------
+# Store — Vector store and knowledge graph
+# ---------------------------------------------------------------------------
+from src.store import KnowledgeGraph, VectorStore
+
+# ---------------------------------------------------------------------------
+# Workflows — Content generation pipelines
+# ---------------------------------------------------------------------------
+from src.workflows import (
+    AdditionalInfoWorkflow,
+    ChatTutor,
+    FlashcardWorkflow,
+    MindMapWorkflow,
+    QuizWorkflow,
+    RevisionNotesWorkflow,
+    SolutionWorkflow,
+)
 
 # ---------------------------------------------------------------------------
 # Public API

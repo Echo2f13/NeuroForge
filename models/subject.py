@@ -19,38 +19,32 @@ from pydantic import BaseModel, Field, field_validator
 
 class SubjectStatus(str, Enum):
     """Status of a subject."""
+
     ACTIVE = "active"
     ARCHIVED = "archived"
 
 
 class SubjectSettings(BaseModel):
     """Per-subject customization settings.
-    
+
     Attributes:
         default_difficulty: Default difficulty for quizzes/flashcards.
         default_quiz_count: Default number of quiz questions.
         default_flashcard_count: Default number of flashcards.
         track_streak_separately: If True, streak is tracked per-subject.
     """
+
     default_difficulty: Optional[str] = Field(
-        None, 
-        description="Default difficulty: easy, medium, hard"
+        None, description="Default difficulty: easy, medium, hard"
     )
     default_quiz_count: int = Field(
-        default=10, 
-        ge=1, 
-        le=50, 
-        description="Default number of quiz questions"
+        default=10, ge=1, le=50, description="Default number of quiz questions"
     )
     default_flashcard_count: int = Field(
-        default=10, 
-        ge=1, 
-        le=50, 
-        description="Default number of flashcards"
+        default=10, ge=1, le=50, description="Default number of flashcards"
     )
     track_streak_separately: bool = Field(
-        default=False, 
-        description="If True, streak is per-subject"
+        default=False, description="If True, streak is per-subject"
     )
 
     @field_validator("default_difficulty")
@@ -67,12 +61,12 @@ class SubjectSettings(BaseModel):
 
 class Subject(BaseModel):
     """Core subject model representing a study subject/course.
-    
+
     A subject is an isolated learning environment containing:
     - Its own documents and chunks
     - Its own knowledge graph
     - Its own learning progress and flashcard scheduling
-    
+
     Attributes:
         id: Unique identifier (UUID).
         name: Display name (1-100 characters).
@@ -86,57 +80,24 @@ class Subject(BaseModel):
         updated_at: Last update timestamp.
         last_activity_at: Last activity (upload, quiz, etc.) timestamp.
     """
-    id: str = Field(
-        default_factory=lambda: str(uuid.uuid4()), 
-        description="Unique subject ID"
-    )
-    name: str = Field(
-        ..., 
-        min_length=1, 
-        max_length=100, 
-        description="Subject name"
-    )
-    description: Optional[str] = Field(
-        None, 
-        max_length=500, 
-        description="Subject description"
-    )
-    color: Optional[str] = Field(
-        None, 
-        pattern=r'^#[0-9A-Fa-f]{6}$', 
-        description="Hex color code"
-    )
-    icon: Optional[str] = Field(
-        None, 
-        max_length=10,
-        description="Emoji or icon identifier"
-    )
-    status: SubjectStatus = Field(
-        default=SubjectStatus.ACTIVE, 
-        description="Subject status"
-    )
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique subject ID")
+    name: str = Field(..., min_length=1, max_length=100, description="Subject name")
+    description: Optional[str] = Field(None, max_length=500, description="Subject description")
+    color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$", description="Hex color code")
+    icon: Optional[str] = Field(None, max_length=10, description="Emoji or icon identifier")
+    status: SubjectStatus = Field(default=SubjectStatus.ACTIVE, description="Subject status")
     settings: SubjectSettings = Field(
-        default_factory=SubjectSettings, 
-        description="Subject settings"
+        default_factory=SubjectSettings, description="Subject settings"
     )
-    is_default: bool = Field(
-        default=False, 
-        description="Whether this is the default subject"
-    )
-    
+    is_default: bool = Field(default=False, description="Whether this is the default subject")
+
     # Timestamps
-    created_at: datetime = Field(
-        default_factory=datetime.utcnow, 
-        description="Creation timestamp"
-    )
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Creation timestamp")
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow, 
-        description="Last update timestamp"
+        default_factory=datetime.utcnow, description="Last update timestamp"
     )
-    last_activity_at: Optional[datetime] = Field(
-        None, 
-        description="Last activity timestamp"
-    )
+    last_activity_at: Optional[datetime] = Field(None, description="Last activity timestamp")
 
     def update_activity(self) -> None:
         """Update the last activity timestamp to now."""
@@ -164,10 +125,10 @@ class Subject(BaseModel):
 
 class SubjectSummary(BaseModel):
     """Lightweight subject info for lists.
-    
+
     Contains only the essential fields needed for displaying
     subjects in a list or selector, plus computed stats.
-    
+
     Attributes:
         id: Unique subject ID.
         name: Subject name.
@@ -184,6 +145,7 @@ class SubjectSummary(BaseModel):
         mastery_percent: Overall mastery percentage.
         last_activity_at: Last activity timestamp.
     """
+
     id: str
     name: str
     description: Optional[str] = None
@@ -191,7 +153,7 @@ class SubjectSummary(BaseModel):
     icon: Optional[str] = None
     status: SubjectStatus = SubjectStatus.ACTIVE
     is_default: bool = False
-    
+
     # Computed stats (calculated when building summary)
     document_count: int = 0
     chunk_count: int = 0
@@ -203,8 +165,8 @@ class SubjectSummary(BaseModel):
 
     @classmethod
     def from_subject(
-        cls, 
-        subject: Subject, 
+        cls,
+        subject: Subject,
         document_count: int = 0,
         chunk_count: int = 0,
         concept_count: int = 0,
@@ -216,7 +178,11 @@ class SubjectSummary(BaseModel):
         return cls(
             id=subject.id,
             name=subject.name,
-            description=subject.description[:100] + "..." if subject.description and len(subject.description) > 100 else subject.description,
+            description=(
+                subject.description[:100] + "..."
+                if subject.description and len(subject.description) > 100
+                else subject.description
+            ),
             color=subject.color,
             icon=subject.icon,
             status=subject.status,
@@ -233,9 +199,9 @@ class SubjectSummary(BaseModel):
 
 class SubjectDocument(BaseModel):
     """Document metadata within a subject.
-    
+
     Tracks information about documents uploaded to a subject.
-    
+
     Attributes:
         id: Unique document ID (hash of filename).
         subject_id: Subject this document belongs to.
@@ -246,13 +212,11 @@ class SubjectDocument(BaseModel):
         concept_count: Number of concepts extracted.
         file_size_bytes: File size in bytes (if known).
     """
+
     id: str = Field(..., description="Unique document ID")
     subject_id: str = Field(..., description="Parent subject ID")
     filename: str = Field(..., description="Original filename")
-    upload_date: datetime = Field(
-        default_factory=datetime.utcnow, 
-        description="Upload timestamp"
-    )
+    upload_date: datetime = Field(default_factory=datetime.utcnow, description="Upload timestamp")
     file_type: str = Field(..., description="File type (pdf, docx, etc.)")
     chunk_count: int = Field(default=0, ge=0, description="Number of chunks")
     concept_count: int = Field(default=0, ge=0, description="Number of concepts")
@@ -270,12 +234,13 @@ class SubjectDocument(BaseModel):
 
 class SubjectDocumentList(BaseModel):
     """List of documents in a subject.
-    
+
     Attributes:
         subject_id: Subject ID.
         documents: List of document metadata.
         total_count: Total number of documents.
     """
+
     subject_id: str
     documents: list[SubjectDocument] = Field(default_factory=list)
     total_count: int = 0

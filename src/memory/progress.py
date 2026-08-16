@@ -8,7 +8,6 @@ weak/strong topics. Enhanced with dashboard data methods for streaks and heatmap
 from __future__ import annotations
 
 import json
-import os
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -61,9 +60,7 @@ class ProgressTracker:
 
         # Record the score and update timestamp
         self._state.topic_progress[topic].add_score(score)
-        self._state.topic_progress[topic].last_attempted = (
-            datetime.now(timezone.utc).isoformat()
-        )
+        self._state.topic_progress[topic].last_attempted = datetime.now(timezone.utc).isoformat()
 
         # Update global counters
         self._state.total_quizzes_taken += 1
@@ -139,9 +136,7 @@ class ProgressTracker:
         for progress in self._state.topic_progress.values():
             all_scores.extend(progress.quiz_scores)
 
-        average_score = (
-            sum(all_scores) / len(all_scores) if all_scores else 0.0
-        )
+        average_score = sum(all_scores) / len(all_scores) if all_scores else 0.0
 
         return {
             "total_quizzes": total_quizzes,
@@ -154,7 +149,7 @@ class ProgressTracker:
 
     def record_card_review(self, card_id: str) -> None:
         """Record a flashcard review for streak tracking.
-        
+
         Args:
             card_id: The flashcard ID that was reviewed.
         """
@@ -163,7 +158,7 @@ class ProgressTracker:
 
     def get_dashboard_data(self) -> dict:
         """Get comprehensive dashboard data for the frontend.
-        
+
         Returns:
             Dictionary with all dashboard metrics including:
             - streak info (current, longest)
@@ -175,32 +170,32 @@ class ProgressTracker:
         """
         # Get basic stats
         overall = self.get_overall_stats()
-        
+
         # Get streak info
         streak_info = {
             "current_streak": self._state.current_streak,
             "longest_streak": self._state.longest_streak,
             "total_cards_reviewed": self._state.total_cards_reviewed,
         }
-        
+
         # Get weekly stats
         weekly = self._state.get_weekly_stats()
-        
+
         # Calculate monthly stats
         monthly = self._get_monthly_stats()
-        
+
         # Get topic mastery breakdown
         topic_mastery = self._get_topic_mastery()
-        
+
         # Get heatmap data (last 365 days)
         heatmap = self._state.get_heatmap_data(365)
-        
+
         # Calculate exam readiness score
         readiness = self._calculate_exam_readiness()
-        
+
         # Get learning velocity (score trend over time)
         velocity = self._get_learning_velocity()
-        
+
         return {
             "streak": streak_info,
             "overall": overall,
@@ -216,10 +211,10 @@ class ProgressTracker:
         """Get statistics for the current month."""
         today = date.today()
         month_start = today.replace(day=1)
-        
+
         reviews = 0
         quizzes = 0
-        
+
         current = month_start
         while current <= today:
             date_str = current.isoformat()
@@ -228,7 +223,7 @@ class ProgressTracker:
                 reviews += activity.reviews_completed
                 quizzes += activity.quizzes_completed
             current += timedelta(days=1)
-        
+
         return {
             "reviews_this_month": reviews,
             "quizzes_this_month": quizzes,
@@ -239,21 +234,23 @@ class ProgressTracker:
         """Get mastery breakdown for all topics."""
         topics = []
         for name, progress in self._state.topic_progress.items():
-            topics.append({
-                "topic": name,
-                "mastery_percent": round(progress.average_score, 1),
-                "mastery_level": progress.mastery_level,
-                "attempts": progress.attempts,
-                "last_attempted": progress.last_attempted,
-            })
-        
+            topics.append(
+                {
+                    "topic": name,
+                    "mastery_percent": round(progress.average_score, 1),
+                    "mastery_level": progress.mastery_level,
+                    "attempts": progress.attempts,
+                    "last_attempted": progress.last_attempted,
+                }
+            )
+
         # Sort by mastery percent descending
         topics.sort(key=lambda x: x["mastery_percent"], reverse=True)
         return topics
 
     def _calculate_exam_readiness(self) -> dict:
         """Calculate predicted exam readiness score.
-        
+
         Formula:
         - 40% average mastery across topics
         - 30% consistency (streak factor)
@@ -262,20 +259,20 @@ class ProgressTracker:
         """
         # Average mastery (0-100)
         if self._state.topic_progress:
-            avg_mastery = sum(
-                p.average_score for p in self._state.topic_progress.values()
-            ) / len(self._state.topic_progress)
+            avg_mastery = sum(p.average_score for p in self._state.topic_progress.values()) / len(
+                self._state.topic_progress
+            )
         else:
             avg_mastery = 0
-        
+
         # Consistency factor based on streak (max at 30 days)
         streak_factor = min(self._state.current_streak / 30, 1.0) * 100
-        
+
         # Coverage (assume we have some topics)
         total_topics = max(len(self._state.topic_progress), 1)
         mastered_topics = len(self._state.strong_topics)
         coverage = (mastered_topics / total_topics) * 100 if total_topics else 0
-        
+
         # Recency (activity in last 7 days)
         today = date.today()
         recent_activity = 0
@@ -286,15 +283,12 @@ class ProgressTracker:
                 if activity.reviews_completed > 0 or activity.quizzes_completed > 0:
                     recent_activity += 1
         recency_score = (recent_activity / 7) * 100
-        
+
         # Weighted score
         readiness_score = (
-            avg_mastery * 0.4 +
-            streak_factor * 0.3 +
-            coverage * 0.2 +
-            recency_score * 0.1
+            avg_mastery * 0.4 + streak_factor * 0.3 + coverage * 0.2 + recency_score * 0.1
         )
-        
+
         # Determine readiness level
         if readiness_score >= 80:
             level = "excellent"
@@ -308,7 +302,7 @@ class ProgressTracker:
         else:
             level = "needs_work"
             message = "Keep studying! Regular practice will boost your readiness."
-        
+
         return {
             "score": round(readiness_score, 1),
             "level": level,
@@ -318,21 +312,21 @@ class ProgressTracker:
                 "consistency": round(streak_factor, 1),
                 "coverage": round(coverage, 1),
                 "recency": round(recency_score, 1),
-            }
+            },
         }
 
     def _get_learning_velocity(self) -> list[dict]:
         """Get learning velocity data (score trends over time).
-        
+
         Returns weekly averages for the last 8 weeks.
         """
         today = date.today()
         velocity = []
-        
+
         for week in range(8):
             week_end = today - timedelta(days=week * 7)
             week_start = week_end - timedelta(days=6)
-            
+
             scores = []
             current = week_start
             while current <= week_end:
@@ -343,16 +337,18 @@ class ProgressTracker:
                         avg = activity.score_sum / activity.quizzes_completed
                         scores.append(avg)
                 current += timedelta(days=1)
-            
+
             avg_score = sum(scores) / len(scores) if scores else None
-            
-            velocity.append({
-                "week": f"Week {8 - week}",
-                "week_start": week_start.isoformat(),
-                "average_score": round(avg_score, 1) if avg_score else None,
-                "quizzes": len(scores),
-            })
-        
+
+            velocity.append(
+                {
+                    "week": f"Week {8 - week}",
+                    "week_start": week_start.isoformat(),
+                    "average_score": round(avg_score, 1) if avg_score else None,
+                    "quizzes": len(scores),
+                }
+            )
+
         # Reverse to show oldest first
         velocity.reverse()
         return velocity

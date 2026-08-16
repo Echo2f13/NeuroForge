@@ -29,8 +29,10 @@ logger = logging.getLogger("neuroforge.extraction.robust")
 # Simpler response models (more reliable JSON generation)
 # ---------------------------------------------------------------------------
 
+
 class SimpleConcept(BaseModel):
     """Simplified concept for more reliable extraction."""
+
     name: str
     definition: str
     topic: str = "General"  # Added topic field with default
@@ -40,11 +42,13 @@ class SimpleConcept(BaseModel):
 
 class SimpleConceptList(BaseModel):
     """List of simplified concepts."""
+
     concepts: list[SimpleConcept] = Field(default_factory=list)
 
 
 class SimpleRelationship(BaseModel):
     """Simplified relationship."""
+
     source: str
     target: str
     type: str = "related"
@@ -52,6 +56,7 @@ class SimpleRelationship(BaseModel):
 
 class SimpleRelationshipList(BaseModel):
     """List of relationships."""
+
     relationships: list[SimpleRelationship] = Field(default_factory=list)
 
 
@@ -90,15 +95,16 @@ Respond with ONLY valid JSON:
 # JSON Parsing Utilities
 # ---------------------------------------------------------------------------
 
+
 def extract_json_from_text(text: str) -> Optional[dict]:
     """Try multiple strategies to extract JSON from LLM response."""
-    
+
     # Strategy 1: Direct parse
     try:
         return json.loads(text.strip())
     except json.JSONDecodeError:
         pass
-    
+
     # Strategy 2: Remove markdown code fences
     cleaned = text.strip()
     if cleaned.startswith("```"):
@@ -114,17 +120,17 @@ def extract_json_from_text(text: str) -> Optional[dict]:
             return json.loads(cleaned)
         except json.JSONDecodeError:
             pass
-    
+
     # Strategy 3: Find JSON object in text
-    json_match = re.search(r'\{[\s\S]*\}', text)
+    json_match = re.search(r"\{[\s\S]*\}", text)
     if json_match:
         try:
             return json.loads(json_match.group())
         except json.JSONDecodeError:
             pass
-    
+
     # Strategy 4: Find JSON array in text
-    array_match = re.search(r'\[[\s\S]*\]', text)
+    array_match = re.search(r"\[[\s\S]*\]", text)
     if array_match:
         try:
             arr = json.loads(array_match.group())
@@ -136,7 +142,7 @@ def extract_json_from_text(text: str) -> Optional[dict]:
                     return {"relationships": arr}
         except json.JSONDecodeError:
             pass
-    
+
     return None
 
 
@@ -145,25 +151,34 @@ def parse_concepts_flexible(text: str) -> list[SimpleConcept]:
     data = extract_json_from_text(text)
     if not data:
         return []
-    
+
     concepts = data.get("concepts", [])
     if not concepts and isinstance(data, list):
         concepts = data
-    
+
     result = []
     for c in concepts:
         if isinstance(c, dict) and "name" in c:
             try:
-                result.append(SimpleConcept(
-                    name=c.get("name", "Unknown"),
-                    definition=c.get("definition", c.get("name", "")),
-                    topic=c.get("topic", c.get("topics", ["General"])[0] if isinstance(c.get("topics"), list) and c.get("topics") else "General"),
-                    difficulty=c.get("difficulty", "medium"),
-                    keywords=c.get("keywords", [])
-                ))
+                result.append(
+                    SimpleConcept(
+                        name=c.get("name", "Unknown"),
+                        definition=c.get("definition", c.get("name", "")),
+                        topic=c.get(
+                            "topic",
+                            (
+                                c.get("topics", ["General"])[0]
+                                if isinstance(c.get("topics"), list) and c.get("topics")
+                                else "General"
+                            ),
+                        ),
+                        difficulty=c.get("difficulty", "medium"),
+                        keywords=c.get("keywords", []),
+                    )
+                )
             except Exception:
                 continue
-    
+
     return result
 
 
@@ -172,23 +187,25 @@ def parse_relationships_flexible(text: str) -> list[SimpleRelationship]:
     data = extract_json_from_text(text)
     if not data:
         return []
-    
+
     rels = data.get("relationships", [])
     if not rels and isinstance(data, list):
         rels = data
-    
+
     result = []
     for r in rels:
         if isinstance(r, dict) and "source" in r and "target" in r:
             try:
-                result.append(SimpleRelationship(
-                    source=r["source"],
-                    target=r["target"],
-                    type=r.get("type", r.get("relationship_type", "related"))
-                ))
+                result.append(
+                    SimpleRelationship(
+                        source=r["source"],
+                        target=r["target"],
+                        type=r.get("type", r.get("relationship_type", "related")),
+                    )
+                )
             except Exception:
                 continue
-    
+
     return result
 
 
@@ -196,22 +213,23 @@ def parse_relationships_flexible(text: str) -> list[SimpleRelationship]:
 # Robust Extractor
 # ---------------------------------------------------------------------------
 
+
 class RobustExtractor:
     """More reliable knowledge extraction with better error handling.
-    
+
     Key improvements over TopicExtractor:
     - Simpler prompts that produce more reliable JSON
-    - Multiple JSON parsing fallback strategies  
+    - Multiple JSON parsing fallback strategies
     - Extracts fewer items per call (3-5 vs unlimited)
     - Better handling of partial failures
     - Detailed logging for debugging
     - Uses Ollama for highest quality extraction (when OLLAMA_BASE_URL is configured)
-    
+
     The extractor will automatically use Ollama if configured, falling back to
     the default provider (Groq) if Ollama is unavailable. This ensures best
     quality knowledge extraction using your local powerful model.
     """
-    
+
     def __init__(
         self,
         llm_client: LLMClient,
@@ -222,7 +240,7 @@ class RobustExtractor:
         self.llm_client = llm_client
         self.max_concepts_per_batch = max_concepts_per_batch
         self._use_ollama = use_ollama_if_available
-        
+
         # Determine which provider to use for extraction
         # Priority: explicit provider > Ollama (if available and enabled) > default
         if provider is not None:
@@ -232,7 +250,7 @@ class RobustExtractor:
             logger.info("🚀 Using Ollama for knowledge extraction (highest quality mode)")
         else:
             self.provider = None  # Use default fallback chain
-            
+
     def _is_ollama_available(self) -> bool:
         """Check if Ollama is configured and available."""
         # Check if OLLAMA_BASE_URL is set (indicates user wants to use Ollama)
@@ -240,53 +258,53 @@ class RobustExtractor:
         if ollama_url:
             return self.llm_client.is_available(LLMProvider.OLLAMA)
         return False
-    
+
     def extract(self, chunks: list[Chunk]) -> KnowledgeExtraction:
         """Extract concepts and relationships from chunks.
-        
+
         Args:
             chunks: Document chunks to process.
-            
+
         Returns:
             KnowledgeExtraction with concepts and relationships.
         """
         if not chunks:
             return KnowledgeExtraction()
-        
+
         logger.info(f"Starting extraction from {len(chunks)} chunks")
-        
+
         # Process chunks in small batches for reliability
         all_concepts: list[Concept] = []
         batch_size = 3  # Small batches for better JSON reliability
-        
+
         for i in range(0, min(len(chunks), 15), batch_size):  # Limit to first 15 chunks
-            batch = chunks[i:i + batch_size]
+            batch = chunks[i : i + batch_size]
             batch_text = "\n\n".join([c.content[:1500] for c in batch])  # Limit text size
             chunk_ids = [c.id for c in batch]
-            
+
             concepts = self._extract_concepts(batch_text, chunk_ids)
             all_concepts.extend(concepts)
             logger.info(f"Batch {i//batch_size + 1}: extracted {len(concepts)} concepts")
-        
+
         # Deduplicate concepts
         unique_concepts = self._deduplicate_concepts(all_concepts)
         logger.info(f"Total unique concepts: {len(unique_concepts)}")
-        
+
         # Extract relationships between concepts
         relationships = []
         if len(unique_concepts) >= 2:
             relationships = self._extract_relationships(unique_concepts)
             logger.info(f"Extracted {len(relationships)} relationships")
-        
+
         return KnowledgeExtraction(
             concepts=unique_concepts,
             relationships=relationships,
         )
-    
+
     def _extract_concepts(self, text: str, chunk_ids: list[str]) -> list[Concept]:
         """Extract concepts from a text block."""
         prompt = CONCEPT_PROMPT.format(text=text[:4000])  # Limit prompt size
-        
+
         try:
             response, _usage = self.llm_client.generate(
                 prompt=prompt,
@@ -295,29 +313,26 @@ class RobustExtractor:
                 temperature=0.2,  # Lower temperature for more consistent output
                 max_tokens=1500,
             )
-            
+
             simple_concepts = parse_concepts_flexible(response)
-            
-            return [
-                self._to_concept(sc, chunk_ids)
-                for sc in simple_concepts
-            ]
-            
+
+            return [self._to_concept(sc, chunk_ids) for sc in simple_concepts]
+
         except Exception as e:
             logger.warning(f"Concept extraction failed: {e}")
             return []
-    
+
     def _extract_relationships(self, concepts: list[Concept]) -> list[ConceptRelationship]:
         """Extract relationships between concepts."""
         if len(concepts) < 2:
             return []
-        
+
         # Limit to first 20 concepts for relationship extraction
         concept_names = [c.name for c in concepts[:20]]
         concept_id_map = {c.name.lower(): c.id for c in concepts}
-        
+
         prompt = RELATIONSHIP_PROMPT.format(concepts=", ".join(concept_names))
-        
+
         try:
             response, _usage = self.llm_client.generate(
                 prompt=prompt,
@@ -326,31 +341,33 @@ class RobustExtractor:
                 temperature=0.2,
                 max_tokens=1500,
             )
-            
+
             simple_rels = parse_relationships_flexible(response)
-            
+
             relationships = []
             for rel in simple_rels:
                 source_id = concept_id_map.get(rel.source.lower())
                 target_id = concept_id_map.get(rel.target.lower())
-                
+
                 if source_id and target_id:
                     rel_type = rel.type.lower()
                     if rel_type not in {"prerequisite", "related", "part_of"}:
                         rel_type = "related"
-                    
-                    relationships.append(ConceptRelationship(
-                        source_concept=source_id,
-                        target_concept=target_id,
-                        relationship_type=rel_type,
-                    ))
-            
+
+                    relationships.append(
+                        ConceptRelationship(
+                            source_concept=source_id,
+                            target_concept=target_id,
+                            relationship_type=rel_type,
+                        )
+                    )
+
             return relationships
-            
+
         except Exception as e:
             logger.warning(f"Relationship extraction failed: {e}")
             return []
-    
+
     def _to_concept(self, simple: SimpleConcept, chunk_ids: list[str]) -> Concept:
         """Convert SimpleConcept to full Concept model."""
         difficulty_map = {
@@ -358,10 +375,10 @@ class RobustExtractor:
             "medium": Difficulty.MEDIUM,
             "hard": Difficulty.HARD,
         }
-        
+
         # Ensure we have at least one topic (required by Concept model)
         topic = simple.topic if simple.topic else simple.name
-        
+
         return Concept(
             id=f"concept-{uuid.uuid4().hex[:8]}",
             name=simple.name,
@@ -372,17 +389,17 @@ class RobustExtractor:
             keywords=simple.keywords,
             source_chunk_ids=chunk_ids,
         )
-    
+
     def _deduplicate_concepts(self, concepts: list[Concept]) -> list[Concept]:
         """Remove duplicate concepts, keeping the most complete version."""
         if not concepts:
             return []
-        
+
         merged: dict[str, Concept] = {}
-        
+
         for concept in concepts:
             key = concept.name.lower().strip()
-            
+
             if key not in merged:
                 merged[key] = concept
             else:
@@ -392,13 +409,13 @@ class RobustExtractor:
                     new_def = concept.definition
                 else:
                     new_def = existing.definition
-                
+
                 # Merge keywords and chunk IDs
                 all_keywords = list(dict.fromkeys(existing.keywords + concept.keywords))
-                all_chunk_ids = list(dict.fromkeys(
-                    existing.source_chunk_ids + concept.source_chunk_ids
-                ))
-                
+                all_chunk_ids = list(
+                    dict.fromkeys(existing.source_chunk_ids + concept.source_chunk_ids)
+                )
+
                 merged[key] = Concept(
                     id=existing.id,
                     name=existing.name,
@@ -409,5 +426,5 @@ class RobustExtractor:
                     keywords=all_keywords,
                     source_chunk_ids=all_chunk_ids,
                 )
-        
+
         return list(merged.values())

@@ -15,19 +15,18 @@ Pipeline steps:
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 from pydantic import BaseModel, Field
 
 from models.knowledge import Difficulty
 from models.output import Flashcard
 from src.llm import LLMClient
+from src.prompts.enhanced import FLASHCARD_SYSTEM_PROMPT, FLASHCARD_USER_PROMPT_TEMPLATE
 from src.retrieval import Retriever
 from src.retrieval.subject_retriever import SubjectRetriever
-from src.prompts.enhanced import FLASHCARD_SYSTEM_PROMPT, FLASHCARD_USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger("neuroforge.workflows.flashcards")
 
@@ -44,18 +43,14 @@ class _FlashcardItem(BaseModel):
     answer: str = Field(..., description="Back of the card (1-10 words)")
     hint: Optional[str] = Field(default=None, description="Hint for difficult cards")
     mnemonic: Optional[str] = Field(default=None, description="Mnemonic device")
-    related_topics: list[str] = Field(
-        default_factory=list, description="Related topic names"
-    )
+    related_topics: list[str] = Field(default_factory=list, description="Related topic names")
     difficulty: str = Field(default="medium", description="easy, medium, or hard")
 
 
 class _FlashcardBatch(BaseModel):
     """Schema for a batch of flashcards from LLM output."""
 
-    flashcards: list[_FlashcardItem] = Field(
-        ..., description="List of generated flashcards"
-    )
+    flashcards: list[_FlashcardItem] = Field(..., description="List of generated flashcards")
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +58,9 @@ class _FlashcardBatch(BaseModel):
 # ---------------------------------------------------------------------------
 
 # Keep for reference but use enhanced versions
-_FLASHCARD_SYSTEM_PROMPT_LEGACY = """You are an expert study assistant creating flashcards for students."""
+_FLASHCARD_SYSTEM_PROMPT_LEGACY = (
+    """You are an expert study assistant creating flashcards for students."""
+)
 
 
 # ---------------------------------------------------------------------------
@@ -81,8 +78,8 @@ class FlashcardWorkflow:
     """
 
     def __init__(
-        self, 
-        retriever: Union[Retriever, SubjectRetriever], 
+        self,
+        retriever: Union[Retriever, SubjectRetriever],
         llm_client: LLMClient,
         subject_id: Optional[str] = None,
     ) -> None:
@@ -116,8 +113,7 @@ class FlashcardWorkflow:
             List of validated Flashcard model instances.
         """
         logger.info(
-            f"Generating {num_cards} flashcards for topic='{topic}', "
-            f"difficulty={difficulty}"
+            f"Generating {num_cards} flashcards for topic='{topic}', " f"difficulty={difficulty}"
         )
 
         # Step 1: Retrieve relevant context
@@ -138,9 +134,7 @@ class FlashcardWorkflow:
     # Pipeline steps
     # ------------------------------------------------------------------
 
-    def _retrieve(
-        self, topic: str, difficulty: Optional[str] = None
-    ) -> list[dict]:
+    def _retrieve(self, topic: str, difficulty: Optional[str] = None) -> list[dict]:
         """Step 1: Retrieve relevant chunks from the knowledge base.
 
         Uses filtered search if difficulty is specified, otherwise
@@ -156,10 +150,8 @@ class FlashcardWorkflow:
         """
         results = []
         if difficulty:
-            results = self.retriever.filtered_search(
-                query=topic, top_k=10, difficulty=difficulty
-            )
-        
+            results = self.retriever.filtered_search(query=topic, top_k=10, difficulty=difficulty)
+
         # Fall back to semantic search if filtered_search returns nothing
         # or if no difficulty was provided
         if not results:

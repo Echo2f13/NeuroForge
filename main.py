@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import tempfile
 import uuid
 from contextlib import asynccontextmanager
@@ -21,14 +20,13 @@ from typing import Any, Optional
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 # Import subject manager exceptions at module level
 from src.subjects.manager import (
-    SubjectNotFoundError,
-    SubjectExistsError,
     DefaultSubjectError,
+    SubjectExistsError,
+    SubjectNotFoundError,
 )
 
 # Load environment variables
@@ -67,31 +65,33 @@ async def lifespan(app: FastAPI):
     logger.info("Starting NeuroForge API...")
 
     # Import dependencies
+    from src.agents.multi_agent import MultiAgentOrchestrator
     from src.llm import LLMClient
-    from src.store.vector_store import VectorStore
-    from src.store.knowledge_graph import KnowledgeGraph
-    from src.retrieval.retriever import Retriever
     from src.memory.progress import ProgressTracker
     from src.memory.spaced_repetition import SpacedRepetitionScheduler
-    from src.agents.multi_agent import MultiAgentOrchestrator
-    from src.subjects import SubjectManager, needs_migration, migrate_to_subjects
+    from src.retrieval.retriever import Retriever
+    from src.store.knowledge_graph import KnowledgeGraph
+    from src.store.vector_store import VectorStore
+    from src.subjects import SubjectManager, migrate_to_subjects, needs_migration
 
     # Check for and run migration if needed
     if needs_migration():
         logger.info("Migration needed. Running migration to subject-based organization...")
         migration_result = migrate_to_subjects()
         logger.info(f"Migration completed with status: {migration_result['status']}")
-        if migration_result['status'] not in ('success', 'already_complete', 'not_needed'):
+        if migration_result["status"] not in ("success", "already_complete", "not_needed"):
             logger.warning(f"Migration had issues: {migration_result.get('errors', [])}")
 
     # Initialize subject manager (NEW)
     _subject_manager = SubjectManager(data_dir="./data")
     logger.info(f"Subject manager initialized with {len(_subject_manager._subjects)} subjects")
-    
+
     # Repair document registries to sync any orphaned documents
     try:
         repair_results = _subject_manager.repair_all_document_registries()
-        total_added = sum(len(r.get("added", [])) for r in repair_results.values() if isinstance(r, dict))
+        total_added = sum(
+            len(r.get("added", [])) for r in repair_results.values() if isinstance(r, dict)
+        )
         if total_added > 0:
             logger.info(f"Document repair: registered {total_added} previously untracked documents")
     except Exception as e:
@@ -138,7 +138,7 @@ async def lifespan(app: FastAPI):
     _sr_scheduler.save()
     if len(_knowledge_graph) > 0:
         _knowledge_graph.save(str(kg_path))
-    
+
     # Save all subject data
     if _subject_manager:
         _subject_manager.save_all()
@@ -182,7 +182,9 @@ class UploadResponse(BaseModel):
 
 class QuizRequest(BaseModel):
     topic: str = Field(..., description="Topic for quiz generation")
-    subject_id: Optional[str] = Field(default="general", description="Subject ID (defaults to 'general')")
+    subject_id: Optional[str] = Field(
+        default="general", description="Subject ID (defaults to 'general')"
+    )
     difficulty: Optional[str] = Field(None, description="easy, medium, or hard")
     num_questions: int = Field(default=10, ge=1, le=50)
     question_types: Optional[list[str]] = Field(
@@ -192,20 +194,26 @@ class QuizRequest(BaseModel):
 
 class FlashcardRequest(BaseModel):
     topic: str = Field(..., description="Topic for flashcard generation")
-    subject_id: Optional[str] = Field(default="general", description="Subject ID (defaults to 'general')")
+    subject_id: Optional[str] = Field(
+        default="general", description="Subject ID (defaults to 'general')"
+    )
     difficulty: Optional[str] = Field(None, description="easy, medium, or hard")
     num_cards: int = Field(default=10, ge=1, le=50)
 
 
 class NotesRequest(BaseModel):
     topic: str = Field(..., description="Topic for revision notes generation")
-    subject_id: Optional[str] = Field(default="general", description="Subject ID (defaults to 'general')")
+    subject_id: Optional[str] = Field(
+        default="general", description="Subject ID (defaults to 'general')"
+    )
 
 
 class ChatRequest(BaseModel):
     message: str = Field(..., description="User's question or message")
     session_id: Optional[str] = Field(None, description="Session ID for conversation continuity")
-    subject_id: Optional[str] = Field(default="general", description="Subject ID (defaults to 'general')")
+    subject_id: Optional[str] = Field(
+        default="general", description="Subject ID (defaults to 'general')"
+    )
 
 
 class ChatResponse(BaseModel):
@@ -213,31 +221,43 @@ class ChatResponse(BaseModel):
     sources: list[str]
     is_grounded: bool
     session_id: str
-    citations: Optional[list[dict]] = Field(default=None, description="Enriched citation data for sources")
-    citation_warning: Optional[str] = Field(default=None, description="Warning if citations failed to load")
+    citations: Optional[list[dict]] = Field(
+        default=None, description="Enriched citation data for sources"
+    )
+    citation_warning: Optional[str] = Field(
+        default=None, description="Warning if citations failed to load"
+    )
 
 
 class MindMapRequest(BaseModel):
     topic: str = Field(..., description="Topic for mind map generation")
-    subject_id: Optional[str] = Field(default="general", description="Subject ID (defaults to 'general')")
+    subject_id: Optional[str] = Field(
+        default="general", description="Subject ID (defaults to 'general')"
+    )
     max_depth: int = Field(default=3, ge=1, le=5)
 
 
 class AdditionalInfoRequest(BaseModel):
     topic: str = Field(..., description="Topic for additional info generation")
-    subject_id: Optional[str] = Field(default="general", description="Subject ID (defaults to 'general')")
+    subject_id: Optional[str] = Field(
+        default="general", description="Subject ID (defaults to 'general')"
+    )
 
 
 class SolutionRequest(BaseModel):
     question: str = Field(..., description="The question to answer")
     topic: str = Field(default="General", description="Topic/subject area")
-    subject_id: Optional[str] = Field(default="general", description="Subject ID (defaults to 'general')")
+    subject_id: Optional[str] = Field(
+        default="general", description="Subject ID (defaults to 'general')"
+    )
     marks: int = Field(default=5, ge=1, le=20, description="Mark allocation affects depth")
 
 
 class ScoreRequest(BaseModel):
     topic: str = Field(..., description="Topic the quiz was about")
-    subject_id: Optional[str] = Field(default="general", description="Subject ID (defaults to 'general')")
+    subject_id: Optional[str] = Field(
+        default="general", description="Subject ID (defaults to 'general')"
+    )
     score: float = Field(..., ge=0, le=100, description="Quiz score (0-100)")
 
 
@@ -248,6 +268,7 @@ class CardReviewRequest(BaseModel):
 
 class ProcessRequest(BaseModel):
     """Generic request for the multi-agent orchestrator."""
+
     query: str = Field(..., description="Natural language query")
 
 
@@ -258,28 +279,32 @@ class ProcessRequest(BaseModel):
 
 class CreateSubjectRequest(BaseModel):
     """Request to create a new subject."""
+
     name: str = Field(..., min_length=1, max_length=100, description="Subject name")
     description: Optional[str] = Field(None, max_length=500, description="Description")
-    color: Optional[str] = Field(None, pattern=r'^#[0-9A-Fa-f]{6}$', description="Hex color")
+    color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$", description="Hex color")
     icon: Optional[str] = Field(None, max_length=10, description="Emoji icon")
 
 
 class UpdateSubjectRequest(BaseModel):
     """Request to update a subject."""
+
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
-    color: Optional[str] = Field(None, pattern=r'^#[0-9A-Fa-f]{6}$')
+    color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
     icon: Optional[str] = Field(None, max_length=10)
 
 
 class MoveDocumentRequest(BaseModel):
     """Request to move a document to another subject."""
+
     target_subject_id: str = Field(..., description="Destination subject ID")
 
 
 # ---------------------------------------------------------------------------
 # Helper Functions
 # ---------------------------------------------------------------------------
+
 
 def get_components():
     """Get initialized component instances."""
@@ -304,11 +329,11 @@ def get_or_create_chat_session(
     subject_id: str = "general",
 ) -> tuple[str, Any]:
     """Get existing or create new chat tutor session.
-    
+
     Args:
         session_id: Existing session ID (can include subject prefix).
         subject_id: Subject identifier for scoped retrieval.
-        
+
     Returns:
         Tuple of (session_id, ChatTutor instance).
     """
@@ -319,18 +344,18 @@ def get_or_create_chat_session(
 
     # Create new session
     new_id = str(uuid.uuid4())
-    
+
     # Get subject-scoped retriever
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     if subject_manager.subject_exists(subject_id):
         retriever = subject_manager.get_subject_retriever(subject_id)
     else:
         retriever = _retriever
-    
+
     tutor = ChatTutor(
-        retriever=retriever, 
+        retriever=retriever,
         llm_client=_llm_client,
         subject_id=subject_id,
     )
@@ -358,16 +383,16 @@ async def root():
 async def health_check():
     """Check API health and component status."""
     components = get_components()
-    
+
     status = {
         "llm_client": components["llm_client"] is not None,
         "vector_store": components["vector_store"] is not None,
         "knowledge_graph": components["knowledge_graph"] is not None,
         "retriever": components["retriever"] is not None,
     }
-    
+
     all_healthy = all(status.values())
-    
+
     return HealthResponse(
         status="healthy" if all_healthy else "degraded",
         message="All components operational" if all_healthy else "Some components unavailable",
@@ -378,35 +403,36 @@ async def health_check():
 @app.get("/llm/info", tags=["Info"])
 async def get_llm_info():
     """Get information about available LLM providers and which is used for extraction.
-    
+
     Returns details about:
     - All configured LLM providers (Groq, OpenRouter, Ollama)
     - Which provider is available (API key/URL configured)
     - Which provider is used for knowledge extraction (the critical task)
     """
-    from src.llm import LLMProvider, DEFAULT_CONFIGS, PROVIDER_BASE_URLS
     from src.extraction.robust_extractor import RobustExtractor
-    
+    from src.llm import DEFAULT_CONFIGS, PROVIDER_BASE_URLS, LLMProvider
+
     components = get_components()
     llm_client = components["llm_client"]
-    
+
     # Get available providers
     available_providers = llm_client.available_providers if llm_client else []
-    
+
     # Build provider info
     providers_info = {}
     for provider in LLMProvider:
         config = DEFAULT_CONFIGS.get(provider)
         is_available = provider in available_providers
-        
+
         provider_info = {
             "available": is_available,
             "model": config.model if config else "unknown",
         }
-        
+
         # Add base URL for Ollama
         if provider == LLMProvider.OLLAMA:
             import os
+
             ollama_url = os.environ.get("OLLAMA_BASE_URL", PROVIDER_BASE_URLS.get(provider, ""))
             provider_info["base_url"] = ollama_url
             provider_info["description"] = "Local LLM for critical knowledge extraction"
@@ -414,15 +440,15 @@ async def get_llm_info():
             provider_info["description"] = "Primary LLM (fast, cloud-based)"
         elif provider == LLMProvider.OPENROUTER:
             provider_info["description"] = "Fallback LLM (many free models)"
-            
+
         providers_info[provider.value] = provider_info
-    
+
     # Determine extraction provider
     extraction_provider = "unknown"
     if llm_client:
         extractor = RobustExtractor(llm_client=llm_client)
         extraction_provider = extractor.provider.value if extractor.provider else "groq (default)"
-    
+
     return {
         "providers": providers_info,
         "extraction_provider": extraction_provider,
@@ -434,11 +460,11 @@ async def get_llm_info():
 async def get_stats():
     """Get knowledge base and learning statistics."""
     components = get_components()
-    
+
     vs_stats = components["vector_store"].get_stats()
     kg_size = len(components["knowledge_graph"])
     learning_stats = components["progress_tracker"].get_overall_stats()
-    
+
     return {
         "knowledge_base": {
             "chunks": vs_stats["chunk_count"],
@@ -452,24 +478,24 @@ async def get_stats():
 @app.post("/admin/repair-documents", tags=["Admin"])
 async def repair_document_registries():
     """Repair document registries by syncing with files on disk.
-    
+
     This scans document folders for all subjects and ensures all stored
     documents are properly registered in their documents.json files.
     Useful for fixing documents that were uploaded before the registration
     system was implemented.
-    
+
     Returns:
         Results for each subject showing added, existing, and error counts.
     """
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     results = subject_manager.repair_all_document_registries()
-    
+
     # Calculate totals
     total_added = sum(len(r.get("added", [])) for r in results.values() if isinstance(r, dict))
     total_errors = sum(len(r.get("errors", [])) for r in results.values() if isinstance(r, dict))
-    
+
     return {
         "status": "success",
         "message": f"Repair completed. Added {total_added} documents, {total_errors} errors.",
@@ -478,30 +504,31 @@ async def repair_document_registries():
 
 
 @app.post("/admin/reindex-documents", tags=["Admin"])
-async def reindex_documents(subject_id: Optional[str] = None, background_tasks: BackgroundTasks = None):
+async def reindex_documents(
+    subject_id: Optional[str] = None, background_tasks: BackgroundTasks = None
+):
     """Re-index all stored documents to subject-scoped vector store.
-    
+
     This re-processes all original documents stored on disk and adds their
     chunks to the subject-scoped vector store. Use this to migrate from
     the old global vector store to subject-isolated collections.
-    
+
     Args:
         subject_id: Specific subject to re-index (or all if None).
-        
+
     Returns:
         Results showing documents processed per subject.
     """
     from src.ingestion import ingest
     from src.processing import DocumentChunker
-    from src.extraction.robust_extractor import RobustExtractor
-    
+
     components = get_components()
     subject_manager = components["subject_manager"]
     subject_vector_store = subject_manager.get_subject_vector_store()
-    
+
     results = {}
     subjects_to_process = [subject_id] if subject_id else list(subject_manager._subjects.keys())
-    
+
     for sid in subjects_to_process:
         subject_results = {
             "documents_processed": 0,
@@ -510,62 +537,65 @@ async def reindex_documents(subject_id: Optional[str] = None, background_tasks: 
             "errors": [],
             "document_chunks": {},  # Track chunk count per document
         }
-        
+
         # Get documents folder
         subject_dir = subject_manager.storage.get_subject_dir(sid)
         docs_dir = subject_dir / "documents"
-        
+
         if not docs_dir.exists():
             results[sid] = subject_results
             continue
-        
+
         # Process each document folder
         for doc_folder in docs_dir.iterdir():
             if not doc_folder.is_dir():
                 continue
-            
+
             doc_id = doc_folder.name
             original_file = doc_folder / "original.pdf"
             metadata_file = doc_folder / "metadata.json"
-            
+
             if not original_file.exists() or not metadata_file.exists():
                 subject_results["errors"].append(f"Missing files for {doc_id}")
                 continue
-            
+
             try:
                 # Load metadata
                 import json
+
                 metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
                 filename = metadata.get("filename", "unknown.pdf")
-                
+
                 # Ingest document
                 document = ingest(str(original_file))
                 document.metadata.source = filename
-                
+
                 # Chunk document
                 chunker = DocumentChunker()
                 chunks = chunker.chunk(document, strategy="paragraph")
-                
+
                 # Enrich chunk metadata
                 suffix = Path(filename).suffix
                 for chunk in chunks:
                     chunk.metadata.document_id = doc_id
                     chunk.metadata.source_file = filename
-                    chunk.metadata.document_format = suffix.lstrip('.').lower()
-                
+                    chunk.metadata.document_format = suffix.lstrip(".").lower()
+
                 # Add to subject-scoped vector store
                 subject_vector_store.add_chunks(sid, chunks)
-                
+
                 subject_results["documents_processed"] += 1
                 subject_results["chunks_created"] += len(chunks)
                 subject_results["document_chunks"][doc_id] = len(chunks)
-                
-                logger.info(f"Re-indexed {filename} ({doc_id}) for subject {sid}: {len(chunks)} chunks")
-                
+
+                logger.info(
+                    f"Re-indexed {filename} ({doc_id}) for subject {sid}: {len(chunks)} chunks"
+                )
+
             except Exception as e:
                 subject_results["errors"].append(f"Error processing {doc_id}: {str(e)}")
                 logger.error(f"Failed to re-index {doc_id}: {e}")
-        
+
         # Update documents.json with correct chunk counts per document
         docs_path = subject_manager.storage.get_documents_path(sid)
         if docs_path.exists() and subject_results["document_chunks"]:
@@ -580,12 +610,12 @@ async def reindex_documents(subject_id: Optional[str] = None, background_tasks: 
                 logger.info(f"Updated chunk counts in documents.json for subject {sid}")
             except Exception as e:
                 logger.warning(f"Failed to update documents.json for {sid}: {e}")
-        
+
         results[sid] = subject_results
-    
+
     total_docs = sum(r["documents_processed"] for r in results.values())
     total_chunks = sum(r["chunks_created"] for r in results.values())
-    
+
     return {
         "status": "success",
         "message": f"Re-indexed {total_docs} documents, created {total_chunks} chunks",
@@ -603,6 +633,7 @@ _upload_jobs: dict[str, dict[str, Any]] = {}
 
 class UploadJobStatus(BaseModel):
     """Status of an upload job."""
+
     job_id: str
     status: str  # "pending", "processing", "extracting", "completed", "failed"
     progress: int  # 0-100
@@ -622,25 +653,26 @@ def process_document_background(
 ):
     """Background task for document processing."""
     import hashlib
+
+    from src.extraction.robust_extractor import RobustExtractor
     from src.ingestion import ingest
     from src.processing import DocumentChunker
-    from src.extraction.robust_extractor import RobustExtractor
-    
+
     try:
         # Update status: processing
         _upload_jobs[job_id]["status"] = "processing"
         _upload_jobs[job_id]["progress"] = 10
         _upload_jobs[job_id]["message"] = "Ingesting document..."
-        
+
         # Ingest document
         document = ingest(file_path)
         document.metadata.source = filename
         doc_id = hashlib.sha256(f"{filename}_{uuid.uuid4().hex}".encode()).hexdigest()[:12]
-        
+
         _upload_jobs[job_id]["document_id"] = doc_id
         _upload_jobs[job_id]["progress"] = 20
         _upload_jobs[job_id]["message"] = "Storing original document..."
-        
+
         # Store the original file for source attribution
         if file_content:
             doc_storage = get_doc_storage()
@@ -648,15 +680,16 @@ def process_document_background(
                 # Count pages for PDF
                 total_pages = None
                 suffix = Path(filename).suffix.lower()
-                if suffix == '.pdf':
+                if suffix == ".pdf":
                     try:
                         import fitz
+
                         pdf_doc = fitz.open(file_path)
                         total_pages = len(pdf_doc)
                         pdf_doc.close()
                     except Exception:
                         pass
-                
+
                 stored_doc = doc_storage.store_document(
                     subject_id=subject_id,
                     doc_id=doc_id,
@@ -667,52 +700,54 @@ def process_document_background(
                 logger.info(f"Stored original document: {stored_doc.storage_path}")
             except Exception as e:
                 logger.warning(f"Failed to store original document (continuing): {e}")
-        
+
         _upload_jobs[job_id]["progress"] = 30
         _upload_jobs[job_id]["message"] = "Chunking document..."
-        
+
         # Chunk the document
         chunker = DocumentChunker()
         chunks = chunker.chunk(document, strategy="paragraph")
-        
+
         # Enrich chunk metadata with document info for citations
         suffix = Path(filename).suffix
         for i, chunk in enumerate(chunks):
             chunk.metadata.document_id = doc_id
             chunk.metadata.source_file = filename
-            chunk.metadata.document_format = suffix.lstrip('.').lower()
-        
+            chunk.metadata.document_format = suffix.lstrip(".").lower()
+
         _upload_jobs[job_id]["chunks_created"] = len(chunks)
         _upload_jobs[job_id]["progress"] = 50
         _upload_jobs[job_id]["message"] = f"Created {len(chunks)} chunks. Storing..."
-        
+
         # Store chunks in SUBJECT-SCOPED vector store (this is the critical fix!)
         components = get_components()
         subject_manager = components["subject_manager"]
         subject_vector_store = subject_manager.get_subject_vector_store()
         subject_vector_store.add_chunks(subject_id, chunks)
         logger.info(f"Stored {len(chunks)} chunks in subject {subject_id}")
-        
+
         _upload_jobs[job_id]["progress"] = 60
         _upload_jobs[job_id]["status"] = "extracting"
         _upload_jobs[job_id]["message"] = "Extracting knowledge concepts..."
-        
+
         # Extract knowledge using robust extractor
         # This will use the default (Groq) for best quality
         concepts_extracted = 0
         try:
             extractor = RobustExtractor(llm_client=components["llm_client"])
-            
+
             # Log which provider is being used for extraction
             provider_name = extractor.provider.value if extractor.provider else "default (Groq)"
             logger.info(f"🧠 Knowledge extraction using: {provider_name}")
             _upload_jobs[job_id]["extraction_provider"] = provider_name
-            
+
             knowledge = extractor.extract(chunks)
-            
+
             _upload_jobs[job_id]["progress"] = 85
-            _upload_jobs[job_id]["message"] = f"Extracted {len(knowledge.concepts)} concepts using {provider_name}. Saving..."
-            
+            _upload_jobs[job_id][
+                "message"
+            ] = f"Extracted {len(knowledge.concepts)} concepts using {provider_name}. Saving..."
+
             if knowledge.concepts:
                 # Store concepts in subject-scoped vector store
                 subject_vector_store.add_concepts(subject_id, knowledge.concepts)
@@ -721,18 +756,18 @@ def process_document_background(
                 subject_knowledge_graph.add_concepts(knowledge.concepts)
                 concepts_extracted = len(knowledge.concepts)
                 _upload_jobs[job_id]["concepts_extracted"] = concepts_extracted
-            
+
             if knowledge.relationships:
                 subject_knowledge_graph = subject_manager.get_subject_knowledge_graph(subject_id)
                 subject_knowledge_graph.add_relationships(knowledge.relationships)
-            
+
             # Save subject's knowledge graph
             subject_manager.save_subject_knowledge_graph(subject_id)
-            
+
         except Exception as e:
             logger.warning(f"Knowledge extraction failed: {e}")
             _upload_jobs[job_id]["message"] = f"Chunks stored. Concept extraction partial: {e}"
-        
+
         # Register document with subject manager (THIS WAS MISSING!)
         _upload_jobs[job_id]["progress"] = 90
         _upload_jobs[job_id]["message"] = "Registering document..."
@@ -743,7 +778,7 @@ def process_document_background(
                 subject_id=subject_id,
                 doc_id=doc_id,
                 filename=filename,
-                file_type=suffix.lstrip('.').lower(),
+                file_type=suffix.lstrip(".").lower(),
                 chunk_count=len(chunks),
                 concept_count=concepts_extracted,
                 file_size_bytes=len(file_content) if file_content else None,
@@ -751,18 +786,18 @@ def process_document_background(
             logger.info(f"Registered document {doc_id} with subject {subject_id}")
         except Exception as e:
             logger.warning(f"Failed to register document with subject manager: {e}")
-        
+
         # Complete
         _upload_jobs[job_id]["status"] = "completed"
         _upload_jobs[job_id]["progress"] = 100
         _upload_jobs[job_id]["message"] = f"Successfully processed {filename}"
-        
+
     except Exception as e:
         logger.error(f"Background processing failed: {e}")
         _upload_jobs[job_id]["status"] = "failed"
         _upload_jobs[job_id]["error"] = str(e)
         _upload_jobs[job_id]["message"] = f"Processing failed: {e}"
-    
+
     finally:
         # Clean up temp file
         if os.path.exists(file_path):
@@ -777,20 +812,20 @@ async def upload_document(
     subject_id: str = "general",
 ):
     """Upload and process a document (PDF, PPTX, DOCX, or image).
-    
+
     Supported formats:
     - PDF (.pdf)
     - PowerPoint (.pptx)
     - Word Document (.docx)
     - Images (.png, .jpg, .jpeg)
     - Text/Markdown (.txt, .md)
-    
+
     Set async_mode=true to process in background and get a job_id for status tracking.
     The original file is stored for source attribution and inline document viewing.
     """
-    from src.ingestion import ingest, detect_format, UnsupportedFormatError
-    from src.processing import DocumentChunker
     from src.extraction.robust_extractor import RobustExtractor
+    from src.ingestion import UnsupportedFormatError, detect_format, ingest
+    from src.processing import DocumentChunker
 
     # Validate file extension
     if not file.filename:
@@ -823,7 +858,7 @@ async def upload_document(
             "concepts_extracted": 0,
             "error": None,
         }
-        
+
         background_tasks.add_task(
             process_document_background,
             job_id,
@@ -832,7 +867,7 @@ async def upload_document(
             subject_id,
             file_content,
         )
-        
+
         return UploadResponse(
             status="processing",
             message=f"Processing started. Track status at /upload/status/{job_id}",
@@ -844,24 +879,25 @@ async def upload_document(
     # Sync mode: process immediately
     try:
         import hashlib
-        
+
         # Generate a document ID
         doc_id = hashlib.sha256(f"{file.filename}_{uuid.uuid4().hex}".encode()).hexdigest()[:12]
-        
+
         # Store the original file for source attribution
         doc_storage = get_doc_storage()
         try:
             # Count pages for PDF
             total_pages = None
-            if suffix.lower() == '.pdf':
+            if suffix.lower() == ".pdf":
                 try:
                     import fitz
+
                     pdf_doc = fitz.open(tmp_path)
                     total_pages = len(pdf_doc)
                     pdf_doc.close()
                 except Exception:
                     pass
-            
+
             stored_doc = doc_storage.store_document(
                 subject_id=subject_id,
                 doc_id=doc_id,
@@ -872,24 +908,24 @@ async def upload_document(
             logger.info(f"Stored original document: {stored_doc.storage_path}")
         except Exception as e:
             logger.warning(f"Failed to store original document (continuing): {e}")
-        
+
         # Ingest document
         logger.info(f"Processing uploaded file: {file.filename}")
         document = ingest(tmp_path)
-        
+
         # Update the source in metadata to use the original filename
         document.metadata.source = file.filename
-        
+
         # Chunk the document
         chunker = DocumentChunker()
         chunks = chunker.chunk(document, strategy="paragraph")
         logger.info(f"Created {len(chunks)} chunks from document")
-        
+
         # Enrich chunk metadata with document info for citations
         for i, chunk in enumerate(chunks):
             chunk.metadata.document_id = doc_id
             chunk.metadata.source_file = file.filename
-            chunk.metadata.document_format = suffix.lstrip('.').lower()
+            chunk.metadata.document_format = suffix.lstrip(".").lower()
 
         # Store chunks in SUBJECT-SCOPED vector store (this is the critical fix!)
         components = get_components()
@@ -903,11 +939,13 @@ async def upload_document(
         extraction_provider = "unknown"
         try:
             extractor = RobustExtractor(llm_client=components["llm_client"])
-            extraction_provider = extractor.provider.value if extractor.provider else "default (Groq)"
+            extraction_provider = (
+                extractor.provider.value if extractor.provider else "default (Groq)"
+            )
             logger.info(f"🧠 Knowledge extraction using: {extraction_provider}")
-            
+
             knowledge = extractor.extract(chunks)
-            
+
             if knowledge.concepts:
                 # Store concepts in subject-scoped vector store
                 subject_vector_store.add_concepts(subject_id, knowledge.concepts)
@@ -915,18 +953,21 @@ async def upload_document(
                 subject_knowledge_graph = subject_manager.get_subject_knowledge_graph(subject_id)
                 subject_knowledge_graph.add_concepts(knowledge.concepts)
                 concepts_extracted = len(knowledge.concepts)
-                
+
             if knowledge.relationships:
                 subject_knowledge_graph = subject_manager.get_subject_knowledge_graph(subject_id)
                 subject_knowledge_graph.add_relationships(knowledge.relationships)
-                
+
             # Save subject's knowledge graph
             subject_manager.save_subject_knowledge_graph(subject_id)
-            logger.info(f"Extracted {concepts_extracted} concepts and {len(knowledge.relationships)} relationships using {extraction_provider}")
-            
+            logger.info(
+                f"Extracted {concepts_extracted} concepts and {len(knowledge.relationships)} relationships using {extraction_provider}"
+            )
+
         except Exception as e:
             logger.warning(f"Knowledge extraction partial failure: {e}")
             import traceback
+
             logger.warning(traceback.format_exc())
 
         # Register document with subject manager (THIS WAS MISSING!)
@@ -935,7 +976,7 @@ async def upload_document(
                 subject_id=subject_id,
                 doc_id=doc_id,
                 filename=file.filename,
-                file_type=suffix.lstrip('.').lower(),
+                file_type=suffix.lstrip(".").lower(),
                 chunk_count=len(chunks),
                 concept_count=concepts_extracted,
                 file_size_bytes=len(file_content),
@@ -966,7 +1007,7 @@ async def get_upload_status(job_id: str):
     """Get the status of a background upload job."""
     if job_id not in _upload_jobs:
         raise HTTPException(status_code=404, detail="Job not found")
-    
+
     job = _upload_jobs[job_id]
     return UploadJobStatus(
         job_id=job_id,
@@ -983,25 +1024,25 @@ async def get_upload_status(job_id: str):
 @app.post("/upload/youtube", tags=["Ingestion"])
 async def upload_youtube(url: str = Form(...), subject_id: str = Form(default="general")):
     """Process a YouTube video (extracts transcript).
-    
+
     Provide a YouTube URL to extract and process the video transcript.
     Optionally specify a subject_id to store in that subject's collection.
     """
-    from src.ingestion import ingest, detect_format, UnsupportedFormatError
+    from src.ingestion import UnsupportedFormatError, detect_format, ingest
     from src.processing import DocumentChunker
 
     try:
-        fmt = detect_format(url)
+        detect_format(url)  # Validates URL format
     except UnsupportedFormatError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     try:
         logger.info(f"Processing YouTube URL: {url}")
         document = ingest(url)
-        
+
         chunker = DocumentChunker()
         chunks = chunker.chunk(document)
-        
+
         # Store chunks in SUBJECT-SCOPED vector store
         components = get_components()
         subject_manager = components["subject_manager"]
@@ -1031,17 +1072,17 @@ async def upload_youtube(url: str = Form(...), subject_id: str = Form(default="g
 @app.post("/quiz", tags=["Generation"])
 async def generate_quiz(request: QuizRequest):
     """Generate quiz questions for a topic.
-    
+
     Returns MCQ, short answer, and/or true/false questions based on
     uploaded study material. Optionally scoped to a specific subject.
     Includes source citations when available.
     """
-    from src.workflows.quiz import QuizWorkflow
     from src.services import CitationEnrichmentService
+    from src.workflows.quiz import QuizWorkflow
 
     components = get_components()
     subject_id = request.subject_id or "general"
-    
+
     # Get subject-scoped retriever if subject_id is provided
     subject_manager = components["subject_manager"]
     if subject_manager.subject_exists(subject_id):
@@ -1065,7 +1106,7 @@ async def generate_quiz(request: QuizRequest):
 
         # Convert to dicts and enrich with citations
         questions_data = [q.model_dump() for q in questions]
-        
+
         # Enrich questions with full citation data
         citation_warning = None
         try:
@@ -1075,7 +1116,9 @@ async def generate_quiz(request: QuizRequest):
                 doc_storage=doc_storage,
                 subject_id=subject_id,
             )
-            questions_data = enrichment_service.enrich_quiz_output(questions_data, subject_id=subject_id)
+            questions_data = enrichment_service.enrich_quiz_output(
+                questions_data, subject_id=subject_id
+            )
         except Exception as e:
             logger.warning(f"Citation enrichment failed (continuing without citations): {e}")
             citation_warning = "Source citations could not be loaded. Questions are still valid."
@@ -1099,16 +1142,16 @@ async def generate_quiz(request: QuizRequest):
 @app.post("/flashcards", tags=["Generation"])
 async def generate_flashcards(request: FlashcardRequest):
     """Generate flashcards for a topic.
-    
+
     Returns Q/A flashcards with hints, mnemonics, and related topics.
     Optionally scoped to a specific subject. Includes source citations when available.
     """
-    from src.workflows.flashcards import FlashcardWorkflow
     from src.services import CitationEnrichmentService
+    from src.workflows.flashcards import FlashcardWorkflow
 
     components = get_components()
     subject_id = request.subject_id or "general"
-    
+
     # Get subject-scoped retriever if subject_id is provided
     subject_manager = components["subject_manager"]
     if subject_manager.subject_exists(subject_id):
@@ -1137,7 +1180,7 @@ async def generate_flashcards(request: FlashcardRequest):
 
         # Convert to dicts and enrich with citations
         cards_data = [c.model_dump() for c in cards]
-        
+
         # Enrich flashcards with full citation data
         citation_warning = None
         try:
@@ -1147,7 +1190,9 @@ async def generate_flashcards(request: FlashcardRequest):
                 doc_storage=doc_storage,
                 subject_id=subject_id,
             )
-            cards_data = enrichment_service.enrich_flashcard_output(cards_data, subject_id=subject_id)
+            cards_data = enrichment_service.enrich_flashcard_output(
+                cards_data, subject_id=subject_id
+            )
         except Exception as e:
             logger.warning(f"Citation enrichment failed (continuing without citations): {e}")
             citation_warning = "Source citations could not be loaded. Flashcards are still valid."
@@ -1169,17 +1214,17 @@ async def generate_flashcards(request: FlashcardRequest):
 @app.post("/notes", tags=["Generation"])
 async def generate_notes(request: NotesRequest):
     """Generate revision notes for a topic.
-    
+
     Returns hierarchical notes with subtopics, key terms, formulae,
     and mnemonics. Optionally scoped to a specific subject.
     Includes source citations when available.
     """
-    from src.workflows.revision_notes import RevisionNotesWorkflow
     from src.services import CitationEnrichmentService
+    from src.workflows.revision_notes import RevisionNotesWorkflow
 
     components = get_components()
     subject_id = request.subject_id or "general"
-    
+
     # Get subject-scoped retriever if subject_id is provided
     subject_manager = components["subject_manager"]
     if subject_manager.subject_exists(subject_id):
@@ -1195,10 +1240,10 @@ async def generate_notes(request: NotesRequest):
 
     try:
         notes, source_chunk_ids = workflow.generate(topic=request.topic)
-        
+
         notes_data = notes.model_dump()
         notes_data["source_chunk_ids"] = source_chunk_ids
-        
+
         # Enrich with citations
         citations = []
         citation_warning = None
@@ -1210,7 +1255,9 @@ async def generate_notes(request: NotesRequest):
                     doc_storage=doc_storage,
                     subject_id=subject_id,
                 )
-                citation_objs = enrichment_service.enrich_batch(source_chunk_ids, subject_id=subject_id)
+                citation_objs = enrichment_service.enrich_batch(
+                    source_chunk_ids, subject_id=subject_id
+                )
                 citations = [c.to_dict() for c in citation_objs]
             except Exception as e:
                 logger.warning(f"Citation enrichment failed (continuing without citations): {e}")
@@ -1233,19 +1280,19 @@ async def generate_notes(request: NotesRequest):
 @app.post("/solution", tags=["Generation"])
 async def generate_solution(request: SolutionRequest):
     """Generate a structured solution for a question.
-    
+
     Solution depth is determined by mark allocation:
     - 1-3 marks: brief (2-3 sentences)
     - 4-6 marks: moderate (key points, paragraphs)
     - 7+ marks: detailed (full explanation, examples)
-    
+
     Optionally scoped to a specific subject.
     """
     from src.workflows.solutions import SolutionWorkflow
 
     components = get_components()
     subject_id = request.subject_id or "general"
-    
+
     # Get subject-scoped retriever if subject_id is provided
     subject_manager = components["subject_manager"]
     if subject_manager.subject_exists(subject_id):
@@ -1283,7 +1330,7 @@ async def generate_solution(request: SolutionRequest):
 @app.post("/mindmap", tags=["Generation"])
 async def generate_mindmap(request: MindMapRequest):
     """Generate a mind map for a topic.
-    
+
     Returns a hierarchical node-edge structure for visualization.
     Optionally scoped to a specific subject.
     """
@@ -1291,7 +1338,7 @@ async def generate_mindmap(request: MindMapRequest):
 
     components = get_components()
     subject_id = request.subject_id or "general"
-    
+
     # Get subject-scoped knowledge graph if subject_id is provided
     subject_manager = components["subject_manager"]
     if subject_manager.subject_exists(subject_id):
@@ -1325,7 +1372,7 @@ async def generate_mindmap(request: MindMapRequest):
 @app.post("/additional-info", tags=["Generation"])
 async def generate_additional_info(request: AdditionalInfoRequest):
     """Generate additional information for a topic.
-    
+
     Returns applications, industry uses, common mistakes, and
     interview questions.
     """
@@ -1359,20 +1406,20 @@ async def generate_additional_info(request: AdditionalInfoRequest):
 @app.post("/chat", response_model=ChatResponse, tags=["Chat"])
 async def chat(request: ChatRequest):
     """Chat with the AI tutor.
-    
+
     RAG-powered conversational tutor that answers questions based on
     uploaded study material. Maintains conversation context per session.
     Optionally scoped to a specific subject. Includes source citations when available.
     """
     from src.services import CitationEnrichmentService
-    
+
     subject_id = request.subject_id or "general"
     session_key = f"{subject_id}:{request.session_id}" if request.session_id else None
     session_id, tutor = get_or_create_chat_session(session_key, subject_id)
 
     try:
         result = tutor.ask(request.message)
-        
+
         # Enrich with citations
         citations = None
         citation_warning = None
@@ -1422,18 +1469,18 @@ async def reset_chat(session_id: str):
 @app.get("/progress", tags=["Progress"])
 async def get_progress(subject_id: Optional[str] = None):
     """Get overall learning progress and statistics.
-    
+
     If subject_id is provided, returns progress for that subject only.
     Otherwise returns global progress across all subjects.
     """
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     if subject_id and subject_manager.subject_exists(subject_id):
         progress_tracker = subject_manager.get_subject_progress_tracker(subject_id)
     else:
         progress_tracker = components["progress_tracker"]
-    
+
     stats = progress_tracker.get_overall_stats()
     weak = progress_tracker.get_weak_topics()
     strong = progress_tracker.get_strong_topics()
@@ -1462,13 +1509,13 @@ async def get_topic_progress(topic: str):
 @app.post("/progress/score", tags=["Progress"])
 async def record_score(request: ScoreRequest):
     """Record a quiz score for a topic.
-    
+
     Optionally scoped to a specific subject.
     """
     components = get_components()
     subject_id = request.subject_id or "general"
     subject_manager = components["subject_manager"]
-    
+
     if subject_manager.subject_exists(subject_id):
         progress_tracker = subject_manager.get_subject_progress_tracker(subject_id)
         subject_manager.update_activity(subject_id)
@@ -1499,10 +1546,10 @@ async def record_score(request: ScoreRequest):
 @app.get("/dashboard", tags=["Dashboard"])
 async def get_dashboard(subject_id: Optional[str] = None):
     """Get comprehensive dashboard data for spaced repetition progress.
-    
+
     If subject_id is provided, returns dashboard for that subject only.
     Otherwise returns global dashboard data.
-    
+
     Returns all metrics needed for the visual dashboard:
     - Streak information (current, longest)
     - Cards due (today, this week, this month)
@@ -1513,7 +1560,7 @@ async def get_dashboard(subject_id: Optional[str] = None):
     """
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     # Get subject-scoped trackers if subject_id provided
     if subject_id and subject_manager.subject_exists(subject_id):
         progress_tracker = subject_manager.get_subject_progress_tracker(subject_id)
@@ -1521,16 +1568,17 @@ async def get_dashboard(subject_id: Optional[str] = None):
     else:
         progress_tracker = components["progress_tracker"]
         sr_scheduler = components["sr_scheduler"]
-    
+
     # Get comprehensive dashboard data from progress tracker
     dashboard = progress_tracker.get_dashboard_data()
-    
+
     # Add due cards info from spaced repetition scheduler
     from datetime import date, timedelta
+
     today = date.today()
-    
+
     due_today = sr_scheduler.get_due_cards(today.isoformat())
-    
+
     # Calculate due this week
     week_end = today + timedelta(days=6 - today.weekday())
     due_week = set(due_today)
@@ -1538,7 +1586,7 @@ async def get_dashboard(subject_id: Optional[str] = None):
         future_date = today + timedelta(days=i)
         if future_date <= week_end:
             due_week.update(sr_scheduler.get_due_cards(future_date.isoformat()))
-    
+
     # Calculate due this month
     month_end = (today.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
     due_month = set(due_today)
@@ -1546,7 +1594,7 @@ async def get_dashboard(subject_id: Optional[str] = None):
     while current <= month_end:
         due_month.update(sr_scheduler.get_due_cards(current.isoformat()))
         current += timedelta(days=1)
-    
+
     dashboard["subject_id"] = subject_id or "global"
     dashboard["due_cards"] = {
         "today": len(due_today),
@@ -1554,30 +1602,30 @@ async def get_dashboard(subject_id: Optional[str] = None):
         "this_month": len(due_month),
         "card_ids_today": due_today,
     }
-    
+
     return dashboard
 
 
 @app.post("/dashboard/record-review", tags=["Dashboard"])
 async def record_review(card_id: str, quality: int):
     """Record a flashcard review and update both SR scheduler and streak tracking.
-    
+
     This endpoint should be used instead of /spaced-repetition/review
     when you want to track reviews for the dashboard streak/heatmap.
     """
     components = get_components()
-    
+
     try:
         # Update spaced repetition scheduler
         components["sr_scheduler"].review_card(card_id, quality)
-        
+
         # Update progress tracker for streak/heatmap
         components["progress_tracker"].record_card_review(card_id)
-        
+
         # Get updated stats
         sr_stats = components["sr_scheduler"].get_card_stats(card_id)
         streak = components["progress_tracker"]._state.current_streak
-        
+
         return {
             "status": "success",
             "card_id": card_id,
@@ -1586,7 +1634,7 @@ async def record_review(card_id: str, quality: int):
             "interval_days": sr_stats["interval"],
             "current_streak": streak,
         }
-    
+
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
@@ -1601,7 +1649,7 @@ async def record_review(card_id: str, quality: int):
 @app.get("/spaced-repetition/due", tags=["Spaced Repetition"])
 async def get_due_cards(date: Optional[str] = None):
     """Get flashcards due for review.
-    
+
     Optionally specify a date (YYYY-MM-DD) to check cards due on that day.
     Defaults to today.
     """
@@ -1618,7 +1666,7 @@ async def get_due_cards(date: Optional[str] = None):
 @app.post("/spaced-repetition/review", tags=["Spaced Repetition"])
 async def review_card(request: CardReviewRequest):
     """Submit a flashcard review (SM-2 algorithm).
-    
+
     Quality scale:
     - 0: Complete blackout
     - 1: Incorrect, but upon seeing answer, remembered
@@ -1667,13 +1715,13 @@ async def get_card_stats(card_id: str):
 @app.post("/process", tags=["Orchestrator"])
 async def process_query(request: ProcessRequest):
     """Process a natural language query through the multi-agent orchestrator.
-    
+
     The orchestrator automatically:
     1. Classifies user intent (quiz, flashcard, explain, notes, etc.)
     2. Routes to the appropriate agent
     3. Validates output quality
     4. Updates learning progress if applicable
-    
+
     This is the recommended endpoint for general queries.
     """
     components = get_components()
@@ -1702,7 +1750,7 @@ async def process_query(request: ProcessRequest):
 @app.get("/search", tags=["Search"])
 async def search(query: str, top_k: int = 5, method: str = "semantic"):
     """Search the knowledge base.
-    
+
     Methods:
     - semantic: Embedding-based similarity search
     - hybrid: Combines semantic search with graph traversal
@@ -1733,7 +1781,7 @@ async def search(query: str, top_k: int = 5, method: str = "semantic"):
 @app.post("/subjects", tags=["Subjects"])
 async def create_subject(request: CreateSubjectRequest):
     """Create a new study subject.
-    
+
     Subjects provide isolated learning environments with their own:
     - Document storage and chunks
     - Knowledge graph
@@ -1742,7 +1790,7 @@ async def create_subject(request: CreateSubjectRequest):
     """
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     try:
         subject = subject_manager.create_subject(
             name=request.name,
@@ -1750,13 +1798,13 @@ async def create_subject(request: CreateSubjectRequest):
             color=request.color,
             icon=request.icon,
         )
-        
+
         return {
             "status": "success",
             "message": f"Subject '{request.name}' created",
             "subject": subject.to_dict(),
         }
-    
+
     except SubjectExistsError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except ValueError as e:
@@ -1766,19 +1814,19 @@ async def create_subject(request: CreateSubjectRequest):
 @app.get("/subjects", tags=["Subjects"])
 async def list_subjects(include_archived: bool = False, sort_by: str = "last_activity"):
     """List all subjects.
-    
+
     Args:
         include_archived: Whether to include archived subjects.
         sort_by: Sort order - "name", "last_activity", "created", "mastery".
     """
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     subjects = subject_manager.list_subjects(
         include_archived=include_archived,
         sort_by=sort_by,
     )
-    
+
     return {
         "subjects": [s.model_dump(mode="json") for s in subjects],
         "total_count": len(subjects),
@@ -1792,16 +1840,16 @@ async def get_subject(subject_id: str):
     """Get detailed information about a subject."""
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     try:
         subject = subject_manager.get_subject(subject_id)
         stats = subject_manager.get_subject_stats(subject_id)
-        
+
         return {
             "subject": subject.to_dict(),
             "stats": stats,
         }
-    
+
     except SubjectNotFoundError:
         raise HTTPException(status_code=404, detail=f"Subject '{subject_id}' not found")
 
@@ -1811,7 +1859,7 @@ async def update_subject(subject_id: str, request: UpdateSubjectRequest):
     """Update a subject's properties."""
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     try:
         subject = subject_manager.update_subject(
             subject_id=subject_id,
@@ -1820,12 +1868,12 @@ async def update_subject(subject_id: str, request: UpdateSubjectRequest):
             color=request.color,
             icon=request.icon,
         )
-        
+
         return {
             "status": "success",
             "subject": subject.to_dict(),
         }
-    
+
     except SubjectNotFoundError:
         raise HTTPException(status_code=404, detail=f"Subject '{subject_id}' not found")
     except SubjectExistsError as e:
@@ -1835,24 +1883,24 @@ async def update_subject(subject_id: str, request: UpdateSubjectRequest):
 @app.delete("/subjects/{subject_id}", tags=["Subjects"])
 async def delete_subject(subject_id: str, force: bool = False):
     """Delete a subject and all its data.
-    
+
     WARNING: This permanently deletes all documents, progress, and data
     associated with the subject.
-    
+
     Args:
         force: Required to delete the default "General" subject.
     """
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     try:
         subject_manager.delete_subject(subject_id, force=force)
-        
+
         return {
             "status": "success",
             "message": f"Subject '{subject_id}' deleted",
         }
-    
+
     except SubjectNotFoundError:
         raise HTTPException(status_code=404, detail=f"Subject '{subject_id}' not found")
     except DefaultSubjectError:
@@ -1864,16 +1912,16 @@ async def archive_subject(subject_id: str):
     """Archive a subject (soft delete)."""
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     try:
         subject = subject_manager.archive_subject(subject_id)
-        
+
         return {
             "status": "success",
             "message": f"Subject '{subject_id}' archived",
             "subject": subject.to_dict(),
         }
-    
+
     except SubjectNotFoundError:
         raise HTTPException(status_code=404, detail=f"Subject '{subject_id}' not found")
     except DefaultSubjectError:
@@ -1885,16 +1933,16 @@ async def restore_subject(subject_id: str):
     """Restore an archived subject."""
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     try:
         subject = subject_manager.restore_subject(subject_id)
-        
+
         return {
             "status": "success",
             "message": f"Subject '{subject_id}' restored",
             "subject": subject.to_dict(),
         }
-    
+
     except SubjectNotFoundError:
         raise HTTPException(status_code=404, detail=f"Subject '{subject_id}' not found")
 
@@ -1904,16 +1952,16 @@ async def list_subject_documents(subject_id: str):
     """List all documents in a subject."""
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     try:
         documents = subject_manager.list_documents(subject_id)
-        
+
         return {
             "subject_id": subject_id,
             "documents": [d.to_dict() for d in documents],
             "total_count": len(documents),
         }
-    
+
     except SubjectNotFoundError:
         raise HTTPException(status_code=404, detail=f"Subject '{subject_id}' not found")
 
@@ -1923,15 +1971,15 @@ async def get_subject_stats(subject_id: str):
     """Get detailed statistics for a subject."""
     components = get_components()
     subject_manager = components["subject_manager"]
-    
+
     try:
         stats = subject_manager.get_subject_stats(subject_id)
-        
+
         return {
             "subject_id": subject_id,
             "stats": stats,
         }
-    
+
     except SubjectNotFoundError:
         raise HTTPException(status_code=404, detail=f"Subject '{subject_id}' not found")
 
@@ -1944,7 +1992,7 @@ async def get_subject_stats(subject_id: str):
 @app.get("/migration/status", tags=["Migration"])
 async def get_migration_status():
     """Get current migration status.
-    
+
     Returns information about:
     - Whether migration is needed
     - Whether migration is complete
@@ -1952,9 +2000,9 @@ async def get_migration_status():
     - Whether cleanup can be performed
     """
     from src.subjects.migration import get_migration_info
-    
+
     info = get_migration_info()
-    
+
     return {
         "needs_migration": info["needs_migration"],
         "migration_complete": info["migration_complete"],
@@ -1967,22 +2015,23 @@ async def get_migration_status():
 @app.post("/migration/cleanup", tags=["Migration"])
 async def cleanup_old_files(dry_run: bool = True):
     """Cleanup old root-level data files after migration.
-    
+
     This endpoint removes the old data files that were migrated to the
     subject-based organization. Only available after migration is complete.
-    
+
     Args:
         dry_run: If True, only report what would be deleted without actually
                  deleting. Set to False to perform the actual cleanup.
-    
+
     Returns:
         List of files that were/would be deleted.
-    
+
     WARNING: Setting dry_run=False will permanently delete the old files.
     Make sure the migration was successful and backups exist before cleanup.
     """
-    from src.subjects.migration import cleanup_old_files as do_cleanup, get_migration_info
-    
+    from src.subjects.migration import cleanup_old_files as do_cleanup
+    from src.subjects.migration import get_migration_info
+
     # Check migration is complete first
     info = get_migration_info()
     if info["needs_migration"]:
@@ -1990,22 +2039,24 @@ async def cleanup_old_files(dry_run: bool = True):
             status_code=400,
             detail="Migration must be completed before cleanup. Old files still need to be migrated.",
         )
-    
+
     if not info["migration_complete"]:
         raise HTTPException(
             status_code=400,
             detail="Migration marker not found. Run migration first.",
         )
-    
+
     result = do_cleanup(dry_run=dry_run)
-    
+
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
-    
+
     return {
         "status": "success",
         "dry_run": dry_run,
-        "message": "Files deleted successfully" if not dry_run else "Dry run complete - no files deleted",
+        "message": (
+            "Files deleted successfully" if not dry_run else "Dry run complete - no files deleted"
+        ),
         "files": result.get("files", []),
     }
 
@@ -2023,12 +2074,14 @@ def get_doc_storage():
     global _doc_storage_service
     if _doc_storage_service is None:
         from src.services import DocumentStorageService
+
         _doc_storage_service = DocumentStorageService(base_dir=Path("./data"))
     return _doc_storage_service
 
 
 class CitationBatchRequest(BaseModel):
     """Request to get citations for multiple chunks."""
+
     chunk_ids: list[str] = Field(..., description="List of chunk IDs to enrich")
     subject_id: Optional[str] = Field(default="general", description="Subject ID for lookup")
 
@@ -2036,7 +2089,7 @@ class CitationBatchRequest(BaseModel):
 @app.get("/chunks/{chunk_id}/citation", tags=["Citations"])
 async def get_chunk_citation(chunk_id: str, subject_id: str = "general"):
     """Get full citation data for a chunk.
-    
+
     Returns detailed source attribution information including:
     - Document name and format
     - Page and paragraph numbers
@@ -2044,16 +2097,16 @@ async def get_chunk_citation(chunk_id: str, subject_id: str = "general"):
     - Bounding boxes for PDF highlighting
     """
     from src.services import CitationEnrichmentService
-    
+
     components = get_components()
     doc_storage = get_doc_storage()
-    
+
     enrichment_service = CitationEnrichmentService(
         vector_store=components["vector_store"],
         doc_storage=doc_storage,
         subject_id=subject_id,
     )
-    
+
     try:
         citation = enrichment_service.enrich_chunk(chunk_id, subject_id=subject_id)
         return {
@@ -2068,21 +2121,21 @@ async def get_chunk_citation(chunk_id: str, subject_id: str = "general"):
 @app.post("/citations/batch", tags=["Citations"])
 async def get_citations_batch(request: CitationBatchRequest):
     """Get citations for multiple chunks at once.
-    
+
     Efficiently fetches citation data for multiple chunks in a single request.
     Useful for enriching quiz questions, flashcards, or chat responses.
     """
     from src.services import CitationEnrichmentService
-    
+
     components = get_components()
     doc_storage = get_doc_storage()
-    
+
     enrichment_service = CitationEnrichmentService(
         vector_store=components["vector_store"],
         doc_storage=doc_storage,
         subject_id=request.subject_id,
     )
-    
+
     try:
         citations = enrichment_service.enrich_batch(
             request.chunk_ids,
@@ -2105,35 +2158,35 @@ async def get_document_file(
     range_header: Optional[str] = None,
 ):
     """Serve a document file for viewing.
-    
+
     Supports HTTP Range headers for partial content (PDF streaming).
     Returns the document with appropriate Content-Type header.
     """
-    from fastapi.responses import StreamingResponse, Response
-    from src.services import DocumentStorageService
+    from fastapi.responses import StreamingResponse
+
     from src.services.document_storage import DocumentNotFoundError
-    
+
     doc_storage = get_doc_storage()
-    
+
     try:
         # Get document metadata
         stored_doc = doc_storage.get_document(subject_id, doc_id)
         content_type = stored_doc.get_content_type()
-        file_path = doc_storage.get_document_path(subject_id, doc_id)
         file_size = stored_doc.file_size
-        
+
         # Handle range requests for streaming
         if range_header:
             # Parse range header (e.g., "bytes=0-1023")
             import re
-            range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
+
+            range_match = re.match(r"bytes=(\d+)-(\d*)", range_header)
             if range_match:
                 start = int(range_match.group(1))
                 end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
                 end = min(end, file_size - 1)
-                
+
                 content_length = end - start + 1
-                
+
                 return StreamingResponse(
                     doc_storage.stream_document(subject_id, doc_id, start, end + 1),
                     status_code=206,
@@ -2145,7 +2198,7 @@ async def get_document_file(
                         "Content-Disposition": f'inline; filename="{stored_doc.filename}"',
                     },
                 )
-        
+
         # Full file response
         return StreamingResponse(
             doc_storage.stream_document(subject_id, doc_id),
@@ -2156,7 +2209,7 @@ async def get_document_file(
                 "Content-Disposition": f'inline; filename="{stored_doc.filename}"',
             },
         )
-        
+
     except DocumentNotFoundError:
         raise HTTPException(status_code=404, detail=f"Document not found: {doc_id}")
     except Exception as e:
@@ -2167,14 +2220,14 @@ async def get_document_file(
 @app.get("/subjects/{subject_id}/documents/{doc_id}/metadata", tags=["Documents"])
 async def get_document_metadata(subject_id: str, doc_id: str):
     """Get metadata for a stored document.
-    
+
     Returns document information including filename, format, size,
     page count, and upload date.
     """
     from src.services.document_storage import DocumentNotFoundError
-    
+
     doc_storage = get_doc_storage()
-    
+
     try:
         stored_doc = doc_storage.get_document(subject_id, doc_id)
         return {
@@ -2192,19 +2245,19 @@ async def get_document_chunks(
     include_content: bool = True,
 ):
     """Get all chunks from a specific document.
-    
+
     Returns chunks with their position information for source navigation.
     Useful for building a document outline or navigation.
     """
     components = get_components()
-    
+
     try:
         # Query chunks by document_id in metadata
         results = components["vector_store"].chunks_collection.get(
             where={"document_id": doc_id},
             include=["documents", "metadatas"] if include_content else ["metadatas"],
         )
-        
+
         if not results or not results.get("ids"):
             return {
                 "status": "success",
@@ -2212,7 +2265,7 @@ async def get_document_chunks(
                 "chunks": [],
                 "count": 0,
             }
-        
+
         chunks = []
         for i, chunk_id in enumerate(results["ids"]):
             chunk_data = {
@@ -2222,10 +2275,10 @@ async def get_document_chunks(
             if include_content and results.get("documents"):
                 chunk_data["content"] = results["documents"][i]
             chunks.append(chunk_data)
-        
+
         # Sort by chunk_index
         chunks.sort(key=lambda c: c["metadata"].get("chunk_index", 0))
-        
+
         return {
             "status": "success",
             "document_id": doc_id,
@@ -2233,7 +2286,7 @@ async def get_document_chunks(
             "chunks": chunks,
             "count": len(chunks),
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting document chunks: {e}")
         raise HTTPException(status_code=500, detail=f"Error retrieving chunks: {str(e)}")
