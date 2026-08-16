@@ -10,7 +10,7 @@ Tests cover:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import networkx as nx
 import pytest
@@ -21,7 +21,6 @@ from src.extraction.relationships import (
     RelationshipItem,
     RelationshipListResponse,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -64,12 +63,8 @@ def sample_relationships() -> list[ConceptRelationship]:
         ConceptRelationship(
             source_concept="c3", target_concept="c4", relationship_type="prerequisite"
         ),
-        ConceptRelationship(
-            source_concept="c5", target_concept="c3", relationship_type="part_of"
-        ),
-        ConceptRelationship(
-            source_concept="c3", target_concept="c4", relationship_type="related"
-        ),
+        ConceptRelationship(source_concept="c5", target_concept="c3", relationship_type="part_of"),
+        ConceptRelationship(source_concept="c3", target_concept="c4", relationship_type="related"),
     ]
 
 
@@ -110,9 +105,7 @@ def mock_llm_client() -> MagicMock:
 class TestExtractRelationships:
     """Tests for the extract_relationships method."""
 
-    def test_basic_extraction(
-        self, mock_llm_client: MagicMock, sample_concepts: list[Concept]
-    ):
+    def test_basic_extraction(self, mock_llm_client: MagicMock, sample_concepts: list[Concept]):
         """LLM output is correctly mapped to ConceptRelationship list."""
         extractor = RelationshipExtractor(llm_client=mock_llm_client)
         rels = extractor.extract_relationships(sample_concepts)
@@ -242,9 +235,7 @@ class TestBuildRelationshipGraph:
         The last-added type ('related') overwrites the first ('prerequisite').
         """
         extractor = RelationshipExtractor(llm_client=mock_llm_client)
-        graph = extractor.build_relationship_graph(
-            sample_concepts, sample_relationships
-        )
+        graph = extractor.build_relationship_graph(sample_concepts, sample_relationships)
 
         assert graph.number_of_nodes() == 5
         # DiGraph: one edge per (u,v) pair — c3→c4 appears twice, second overwrites
@@ -305,9 +296,7 @@ class TestValidateNoCycles:
     ):
         """A valid graph with no prerequisite cycles passes."""
         extractor = RelationshipExtractor(llm_client=mock_llm_client)
-        graph = extractor.build_relationship_graph(
-            sample_concepts, sample_relationships
-        )
+        graph = extractor.build_relationship_graph(sample_concepts, sample_relationships)
 
         is_valid, cycles = extractor.validate_no_cycles(graph)
         assert is_valid is True
@@ -411,9 +400,7 @@ class TestRemoveCycles:
         cleaned = extractor.remove_cycles(rels, concepts)
 
         # At least one prerequisite edge should be removed
-        prereq_count = sum(
-            1 for r in cleaned if r.relationship_type == "prerequisite"
-        )
+        prereq_count = sum(1 for r in cleaned if r.relationship_type == "prerequisite")
         assert prereq_count < 3
 
         # Validate no cycles remain
@@ -444,9 +431,7 @@ class TestRemoveCycles:
         extractor = RelationshipExtractor(llm_client=mock_llm_client)
         cleaned = extractor.remove_cycles(rels, concepts)
 
-        related_count = sum(
-            1 for r in cleaned if r.relationship_type == "related"
-        )
+        related_count = sum(1 for r in cleaned if r.relationship_type == "related")
         # Both related edges preserved
         assert related_count == 2
 
@@ -487,9 +472,7 @@ class TestVisualizeGraph:
     ):
         """Visualization saves to file when output_path is specified."""
         extractor = RelationshipExtractor(llm_client=mock_llm_client)
-        graph = extractor.build_relationship_graph(
-            sample_concepts, sample_relationships
-        )
+        graph = extractor.build_relationship_graph(sample_concepts, sample_relationships)
         output_file = str(tmp_path / "test_graph.png")
         extractor.visualize_graph(graph, output_path=output_file)
 

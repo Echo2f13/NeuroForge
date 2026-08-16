@@ -31,9 +31,7 @@ class DifficultyItem(BaseModel):
     """Single chunk difficulty classification."""
 
     chunk_id: str = Field(..., description="ID of the chunk")
-    difficulty: str = Field(
-        ..., description="Difficulty level: easy, medium, or hard"
-    )
+    difficulty: str = Field(..., description="Difficulty level: easy, medium, or hard")
 
 
 class DifficultyResponse(BaseModel):
@@ -48,17 +46,13 @@ class KeywordsItem(BaseModel):
     """Keywords extracted for a single chunk."""
 
     chunk_id: str = Field(..., description="ID of the chunk")
-    keywords: list[str] = Field(
-        ..., description="5-10 keywords extracted from the chunk"
-    )
+    keywords: list[str] = Field(..., description="5-10 keywords extracted from the chunk")
 
 
 class KeywordsResponse(BaseModel):
     """LLM response model for keyword extraction."""
 
-    results: list[KeywordsItem] = Field(
-        ..., description="Keywords per chunk"
-    )
+    results: list[KeywordsItem] = Field(..., description="Keywords per chunk")
 
 
 class SummaryItem(BaseModel):
@@ -71,17 +65,13 @@ class SummaryItem(BaseModel):
 class ChunkSummariesResponse(BaseModel):
     """LLM response model for chunk summaries."""
 
-    summaries: list[SummaryItem] = Field(
-        ..., description="Summary per chunk"
-    )
+    summaries: list[SummaryItem] = Field(..., description="Summary per chunk")
 
 
 class DocumentSummaryResponse(BaseModel):
     """LLM response model for document-level summary."""
 
-    summary: str = Field(
-        ..., description="3-5 sentence document summary"
-    )
+    summary: str = Field(..., description="3-5 sentence document summary")
 
 
 # ---------------------------------------------------------------------------
@@ -201,9 +191,7 @@ class MetadataExtractor:
         self.batch_size = batch_size
         self.provider = provider
 
-    def classify_difficulty(
-        self, chunks: list[Chunk]
-    ) -> dict[str, Difficulty]:
+    def classify_difficulty(self, chunks: list[Chunk]) -> dict[str, Difficulty]:
         """Assign a difficulty level to each chunk using LLM classification.
 
         Args:
@@ -234,9 +222,7 @@ class MetadataExtractor:
                     temperature=0.3,
                 )
                 for item in result.classifications:
-                    difficulty = enum_lookup.get(
-                        item.difficulty.lower().strip(), Difficulty.MEDIUM
-                    )
+                    difficulty = enum_lookup.get(item.difficulty.lower().strip(), Difficulty.MEDIUM)
                     difficulty_map[item.chunk_id] = difficulty
             except Exception as e:
                 logger.warning(f"Difficulty classification failed for batch: {e}")
@@ -246,9 +232,7 @@ class MetadataExtractor:
 
         return difficulty_map
 
-    def estimate_study_time(
-        self, concepts: list[Concept]
-    ) -> dict[str, float]:
+    def estimate_study_time(self, concepts: list[Concept]) -> dict[str, float]:
         """Estimate study time in minutes for each concept.
 
         Uses a heuristic based on difficulty level and prerequisite count:
@@ -276,18 +260,14 @@ class MetadataExtractor:
 
             # Add time for prerequisites (more prereqs = more complex)
             prereq_count = len(concept.prerequisites)
-            prereq_bonus = min(
-                prereq_count * PREREQ_TIME_BONUS, MAX_PREREQ_BONUS
-            )
+            prereq_bonus = min(prereq_count * PREREQ_TIME_BONUS, MAX_PREREQ_BONUS)
 
             total_time = round(base_time + prereq_bonus, 1)
             study_times[concept.id] = total_time
 
         return study_times
 
-    def extract_keywords(
-        self, chunks: list[Chunk]
-    ) -> dict[str, list[str]]:
+    def extract_keywords(self, chunks: list[Chunk]) -> dict[str, list[str]]:
         """Extract 5-10 keywords per chunk using LLM.
 
         Args:
@@ -322,9 +302,7 @@ class MetadataExtractor:
 
         return keywords_map
 
-    def generate_chunk_summaries(
-        self, chunks: list[Chunk]
-    ) -> dict[str, str]:
+    def generate_chunk_summaries(self, chunks: list[Chunk]) -> dict[str, str]:
         """Generate 1-2 sentence summaries per chunk using LLM.
 
         Args:

@@ -10,7 +10,6 @@ Supports subject-scoped retrieval for isolated learning contexts.
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from typing import Optional, Union
@@ -20,9 +19,9 @@ from pydantic import BaseModel
 from models.knowledge import Difficulty
 from models.output import QuizQuestion
 from src.llm import LLMClient
+from src.prompts.enhanced import QUIZ_SYSTEM_PROMPT, QUIZ_USER_PROMPT_TEMPLATE
 from src.retrieval.retriever import Retriever
 from src.retrieval.subject_retriever import SubjectRetriever
-from src.prompts.enhanced import QUIZ_SYSTEM_PROMPT, QUIZ_USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger("neuroforge.workflows.quiz")
 
@@ -59,8 +58,8 @@ class QuizWorkflow:
     """
 
     def __init__(
-        self, 
-        llm_client: LLMClient, 
+        self,
+        llm_client: LLMClient,
         retriever: Union[Retriever, SubjectRetriever],
         subject_id: Optional[str] = None,
     ) -> None:
@@ -144,7 +143,7 @@ class QuizWorkflow:
                 chunks = self.retriever.filtered_search(
                     query=topic, top_k=10, topic=topic, difficulty=difficulty
                 )
-            
+
             # Fall back to semantic search if filtered_search returns nothing
             # or if no difficulty was provided
             if not chunks:
@@ -185,7 +184,7 @@ class QuizWorkflow:
 
         # Format question types for prompt
         type_str = ", ".join(question_types)
-        
+
         # Build the enhanced prompt
         prompt = QUIZ_USER_PROMPT_TEMPLATE.format(
             num_questions=num_questions,
@@ -203,13 +202,13 @@ class QuizWorkflow:
                 temperature=0.6,  # Slightly lower for more consistent quality
                 max_tokens=4096,  # More tokens for detailed explanations
             )
-            
+
             # Inject source chunk IDs into generated questions
             questions = result.questions
             for q in questions:
                 if not q.get("source_chunk_ids"):
                     q["source_chunk_ids"] = chunk_ids[:3]  # Top 3 most relevant chunks
-            
+
             return questions
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
@@ -256,9 +255,7 @@ class QuizWorkflow:
         allowed = {"mcq", "short_answer", "true_false"}
         for t in types:
             if t not in allowed:
-                raise ValueError(
-                    f"Invalid question type '{t}'. Allowed: {sorted(allowed)}"
-                )
+                raise ValueError(f"Invalid question type '{t}'. Allowed: {sorted(allowed)}")
 
     @staticmethod
     def _build_prompt(

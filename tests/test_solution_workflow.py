@@ -4,19 +4,16 @@ Tests the SolutionWorkflow pipeline with mocked LLM and Retriever
 to validate depth scaling, prompt construction, and output formatting.
 """
 
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from models.output import Solution
 from src.workflows.solutions import (
-    DEPTH_PROMPTS,
     SolutionWorkflow,
     _build_solution_prompt,
     _get_depth_category,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -39,8 +36,14 @@ def _make_mock_retriever(chunks: list[dict] | None = None) -> MagicMock:
     mock_retriever = MagicMock()
     if chunks is None:
         chunks = [
-            {"content": "Photosynthesis is the process by which plants convert light energy.", "score": 0.9},
-            {"content": "Chlorophyll absorbs light primarily in red and blue wavelengths.", "score": 0.8},
+            {
+                "content": "Photosynthesis is the process by which plants convert light energy.",
+                "score": 0.9,
+            },
+            {
+                "content": "Chlorophyll absorbs light primarily in red and blue wavelengths.",
+                "score": 0.8,
+            },
         ]
     mock_retriever.semantic_search.return_value = chunks
     return mock_retriever
@@ -144,9 +147,7 @@ class TestSolutionWorkflow:
         mock_retriever = _make_mock_retriever()
 
         workflow = SolutionWorkflow(llm_client=mock_llm, retriever=mock_retriever)
-        result = workflow.generate(
-            question="Define osmosis", topic="Biology", marks=2
-        )
+        result = workflow.generate(question="Define osmosis", topic="Biology", marks=2)
 
         assert isinstance(result, Solution)
         assert result.marks == 2
@@ -189,9 +190,7 @@ class TestSolutionWorkflow:
         mock_retriever = _make_mock_retriever()
 
         workflow = SolutionWorkflow(llm_client=mock_llm, retriever=mock_retriever)
-        result = workflow.generate(
-            question="Explain photosynthesis", topic="Biology", marks=5
-        )
+        result = workflow.generate(question="Explain photosynthesis", topic="Biology", marks=5)
 
         assert result.marks == 5
         assert len(result.marking_scheme) == 5
@@ -270,9 +269,7 @@ class TestSolutionWorkflow:
         mock_llm = _make_mock_llm(solution_data)
 
         workflow = SolutionWorkflow(llm_client=mock_llm, retriever=None)
-        result = workflow.generate(
-            question="What is gravity?", topic="Physics", marks=3
-        )
+        result = workflow.generate(question="What is gravity?", topic="Physics", marks=3)
 
         assert isinstance(result, Solution)
         assert result.topic == "Physics"
@@ -302,9 +299,7 @@ class TestSolutionWorkflow:
         mock_retriever.semantic_search.side_effect = RuntimeError("DB connection failed")
 
         workflow = SolutionWorkflow(llm_client=mock_llm, retriever=mock_retriever)
-        result = workflow.generate(
-            question="Define entropy", topic="Chemistry", marks=4
-        )
+        result = workflow.generate(question="Define entropy", topic="Chemistry", marks=4)
 
         # Should still produce a solution (without context)
         assert isinstance(result, Solution)
@@ -332,9 +327,14 @@ class TestSolutionWorkflow:
             "topic": "Biology",
         }
         mock_llm = _make_mock_llm(solution_data)
-        mock_retriever = _make_mock_retriever([
-            {"content": "Mitosis produces two genetically identical daughter cells.", "score": 0.95},
-        ])
+        mock_retriever = _make_mock_retriever(
+            [
+                {
+                    "content": "Mitosis produces two genetically identical daughter cells.",
+                    "score": 0.95,
+                },
+            ]
+        )
 
         workflow = SolutionWorkflow(llm_client=mock_llm, retriever=mock_retriever)
         workflow.generate(question="Explain mitosis", topic="Biology", marks=5)

@@ -6,23 +6,17 @@ of headings, paragraphs, tables, and nested lists.
 
 from __future__ import annotations
 
-import os
-import tempfile
 from pathlib import Path
 
 import pytest
 from docx import Document as DocxDocument
-from docx.shared import Inches, Pt
 
-from models.document import Document, InputFormat, Section
+from models.document import Document, InputFormat
 from src.ingestion.docx_loader import (
     DOCXLoader,
     DocxLoadError,
-    _extract_table_text,
-    _get_heading_level,
     extract_docx,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures: create sample DOCX files for testing
@@ -194,9 +188,7 @@ class TestSectionExtraction:
     def test_section_content_grouped(self, simple_docx):
         result = extract_docx(str(simple_docx))
         # Find section one
-        section_one = next(
-            (s for s in result.sections if s.heading == "Section One"), None
-        )
+        section_one = next((s for s in result.sections if s.heading == "Section One"), None)
         assert section_one is not None
         assert "Content under section one" in section_one.content
         assert "More content in section one" in section_one.content
@@ -208,9 +200,7 @@ class TestSectionExtraction:
 
     def test_heading_levels_preserved(self, multi_level_heading_docx):
         result = extract_docx(str(multi_level_heading_docx))
-        subsection = next(
-            (s for s in result.sections if s.heading == "Subsection 1.1"), None
-        )
+        subsection = next((s for s in result.sections if s.heading == "Subsection 1.1"), None)
         if subsection:
             assert subsection.level == 3
 
@@ -240,9 +230,7 @@ class TestTableExtraction:
     def test_table_in_section(self, table_docx):
         result = extract_docx(str(table_docx))
         # Table content should be in a section
-        section_with_table = next(
-            (s for s in result.sections if "|" in s.content), None
-        )
+        section_with_table = next((s for s in result.sections if "|" in s.content), None)
         assert section_with_table is not None
 
 
@@ -266,9 +254,7 @@ class TestListExtraction:
     def test_list_items_in_section(self, list_docx):
         result = extract_docx(str(list_docx))
         # Lists should be part of the section under the heading
-        shopping_section = next(
-            (s for s in result.sections if s.heading == "Shopping List"), None
-        )
+        shopping_section = next((s for s in result.sections if s.heading == "Shopping List"), None)
         assert shopping_section is not None
         assert "Fruits" in shopping_section.content
 

@@ -26,7 +26,7 @@ from typing import Any, Optional, Type, TypeVar
 
 from dotenv import load_dotenv
 from openai import OpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 # Load environment variables from .env file
 load_dotenv()
@@ -137,9 +137,7 @@ class AllProvidersFailedError(LLMError):
 
     def __init__(self, errors: list[str]):
         self.errors = errors
-        super().__init__(
-            f"All providers failed. Errors: {'; '.join(errors)}"
-        )
+        super().__init__(f"All providers failed. Errors: {'; '.join(errors)}")
 
 
 class JSONParsingError(LLMError):
@@ -188,12 +186,11 @@ class LLMClient:
             if provider == LLMProvider.OLLAMA:
                 # Get base URL from env or use default
                 base_url = os.environ.get(
-                    config.base_url_env or "OLLAMA_BASE_URL",
-                    PROVIDER_BASE_URLS[provider]
+                    config.base_url_env or "OLLAMA_BASE_URL", PROVIDER_BASE_URLS[provider]
                 )
                 # Ollama doesn't need a real API key, use placeholder
                 api_key = os.environ.get(config.api_key_env, "ollama")
-                
+
                 self._clients[provider] = OpenAI(
                     api_key=api_key,
                     base_url=base_url,
@@ -203,7 +200,7 @@ class LLMClient:
                     f"(model: {config.model}, base_url: {base_url})"
                 )
                 continue
-            
+
             api_key = os.environ.get(config.api_key_env)
             if not api_key:
                 logger.warning(
@@ -216,10 +213,7 @@ class LLMClient:
                 api_key=api_key,
                 base_url=PROVIDER_BASE_URLS[provider],
             )
-            logger.info(
-                f"Initialized {provider.value} client "
-                f"(model: {config.model})"
-            )
+            logger.info(f"Initialized {provider.value} client " f"(model: {config.model})")
 
     def _get_available_providers(
         self, preferred: Optional[LLMProvider] = None
@@ -281,14 +275,10 @@ class LLMClient:
 
             # Detect rate limit errors (429)
             if "429" in error_msg or "rate" in error_msg.lower():
-                logger.warning(
-                    f"[{provider.value}] Rate limit hit after {latency:.2f}s"
-                )
+                logger.warning(f"[{provider.value}] Rate limit hit after {latency:.2f}s")
                 raise RateLimitError(provider, error_msg)
 
-            logger.error(
-                f"[{provider.value}] API error after {latency:.2f}s: {error_msg}"
-            )
+            logger.error(f"[{provider.value}] API error after {latency:.2f}s: {error_msg}")
             raise LLMError(f"{provider.value} error: {error_msg}")
 
         latency = time.time() - start_time
@@ -342,9 +332,7 @@ class LLMClient:
 
         chain = self._get_available_providers(preferred=provider)
         if not chain:
-            raise LLMError(
-                "No providers available. Check your API key environment variables."
-            )
+            raise LLMError("No providers available. Check your API key environment variables.")
 
         errors: list[str] = []
 
@@ -358,22 +346,19 @@ class LLMClient:
                         max_tokens=max_tokens,
                     )
                 except RateLimitError as e:
-                    backoff = BACKOFF_BASE * (BACKOFF_MULTIPLIER ** attempt)
+                    backoff = BACKOFF_BASE * (BACKOFF_MULTIPLIER**attempt)
                     logger.warning(
                         f"[{current_provider.value}] Retry {attempt + 1}/{MAX_RETRIES} "
                         f"— backing off {backoff:.1f}s"
                     )
-                    errors.append(
-                        f"{current_provider.value} attempt {attempt + 1}: {e}"
-                    )
+                    errors.append(f"{current_provider.value} attempt {attempt + 1}: {e}")
                     time.sleep(backoff)
                 except LLMError as e:
                     errors.append(f"{current_provider.value}: {e}")
                     break  # Non-rate-limit error → skip to next provider
 
             logger.warning(
-                f"[{current_provider.value}] Exhausted retries, "
-                f"falling back to next provider."
+                f"[{current_provider.value}] Exhausted retries, " f"falling back to next provider."
             )
 
         raise AllProvidersFailedError(errors)
@@ -451,8 +436,7 @@ class LLMClient:
         # Merge usage info
         combined_usage = {
             **usage_retry,
-            "total_tokens": usage.get("total_tokens", 0)
-            + usage_retry.get("total_tokens", 0),
+            "total_tokens": usage.get("total_tokens", 0) + usage_retry.get("total_tokens", 0),
             "retried": True,
         }
 
@@ -465,9 +449,7 @@ class LLMClient:
             message=f"Failed to parse as {response_model.__name__} after retry.",
         )
 
-    def _try_parse_json(
-        self, raw_text: str, response_model: Type[T]
-    ) -> Optional[T]:
+    def _try_parse_json(self, raw_text: str, response_model: Type[T]) -> Optional[T]:
         """Attempt to parse raw LLM text as JSON and validate with Pydantic.
 
         Handles common issues like markdown code fences around JSON.

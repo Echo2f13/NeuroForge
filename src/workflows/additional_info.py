@@ -16,16 +16,15 @@ Pipeline steps:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
 from src.llm import LLMClient
-from src.retrieval import Retriever
 from src.prompts.enhanced import (
     ADDITIONAL_INFO_SYSTEM_PROMPT,
     ADDITIONAL_INFO_USER_PROMPT_TEMPLATE,
 )
+from src.retrieval import Retriever
 
 logger = logging.getLogger("neuroforge.workflows.additional_info")
 

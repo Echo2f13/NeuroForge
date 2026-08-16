@@ -4,12 +4,8 @@ import pytest
 
 from models import Chunk, ChunkMetadata, Document, DocumentMetadata, InputFormat
 from src.processing.structure import (
-    CodeBlock,
     DocumentStructure,
-    ListBlock,
-    SectionNode,
     StructureExtractor,
-    TableBlock,
 )
 
 

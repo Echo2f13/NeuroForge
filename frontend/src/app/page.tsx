@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import api, { 
   QuizQuestion, Flashcard, RevisionNote, ChatMessage, 
-  MindMap, DashboardData, Subject, SubjectSummary, Citation
+  MindMap, DashboardData, Subject, Citation
 } from '@/lib/api';
 import { useSubject } from '@/contexts/SubjectContext';
 import { useCitation } from '@/contexts/CitationContext';
@@ -15,7 +15,7 @@ import type { FeatureTab } from '@/components/layout';
 // UI Components
 import { 
   Button, Card, CardHeader, CardContent,
-  Input, Badge, LoadingSpinner,
+  Input, Badge,
   ProgressBar, Modal,
   QuizSkeleton, FlashcardSkeleton, NotesSkeleton, DashboardSkeleton,
   EmptyState, KeyboardShortcutsHelp
@@ -57,13 +57,13 @@ export default function Home() {
     setActiveSubject,
     createSubject,
     updateSubject,
-    deleteSubject,
+    deleteSubject: _deleteSubject,
     loading: subjectLoading,
     loadSubjects,
   } = useSubject();
   
-  // Citation context
-  const { viewerOpen, toggleViewer, currentDocument } = useCitation();
+  // Citation context (used by child components via context)
+  useCitation();
 
   // Navigation state
   const [globalView, setGlobalView] = useState<GlobalView>('subject');
@@ -147,7 +147,7 @@ export default function Home() {
             id: doc.id,
             filename: doc.filename,
             file_type: doc.file_type,
-            upload_date: doc.upload_date,
+            upload_date: doc.uploaded_at,
             chunk_count: doc.chunk_count,
             concept_count: doc.concept_count,
           }));

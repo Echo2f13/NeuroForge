@@ -186,6 +186,4 @@ def ingest(source: str) -> Document:
         # Re-raise our own errors without wrapping
         raise
     except Exception as e:
-        raise IngestionError(
-            f"Failed to ingest '{source}' (format: {fmt.value}): {e}"
-        ) from e
+        raise IngestionError(f"Failed to ingest '{source}' (format: {fmt.value}): {e}") from e

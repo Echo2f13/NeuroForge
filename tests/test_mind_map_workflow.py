@@ -18,7 +18,6 @@ from models import Concept, ConceptRelationship, Difficulty, MindMap, MindMapNod
 from src.store.knowledge_graph import KnowledgeGraph
 from src.workflows.mind_map import MindMapWorkflow
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -48,11 +47,15 @@ def ml_concepts() -> list[Concept]:
     return [
         make_concept("ml-1", "Machine Learning", ["Machine Learning"], keywords=["ml", "ai"]),
         make_concept("ml-2", "Supervised Learning", ["Machine Learning"], keywords=["supervised"]),
-        make_concept("ml-3", "Unsupervised Learning", ["Machine Learning"], keywords=["unsupervised"]),
+        make_concept(
+            "ml-3", "Unsupervised Learning", ["Machine Learning"], keywords=["unsupervised"]
+        ),
         make_concept("ml-4", "Linear Regression", ["Machine Learning"], keywords=["regression"]),
         make_concept("ml-5", "Decision Trees", ["Machine Learning"], keywords=["trees"]),
         make_concept("ml-6", "K-Means Clustering", ["Machine Learning"], keywords=["clustering"]),
-        make_concept("ml-7", "Neural Networks", ["Machine Learning", "Deep Learning"], keywords=["nn"]),
+        make_concept(
+            "ml-7", "Neural Networks", ["Machine Learning", "Deep Learning"], keywords=["nn"]
+        ),
     ]
 
 
@@ -60,12 +63,24 @@ def ml_concepts() -> list[Concept]:
 def ml_relationships() -> list[ConceptRelationship]:
     """Relationships between ML concepts."""
     return [
-        ConceptRelationship(source_concept="ml-1", target_concept="ml-2", relationship_type="prerequisite"),
-        ConceptRelationship(source_concept="ml-1", target_concept="ml-3", relationship_type="prerequisite"),
-        ConceptRelationship(source_concept="ml-2", target_concept="ml-4", relationship_type="prerequisite"),
-        ConceptRelationship(source_concept="ml-2", target_concept="ml-5", relationship_type="prerequisite"),
-        ConceptRelationship(source_concept="ml-3", target_concept="ml-6", relationship_type="prerequisite"),
-        ConceptRelationship(source_concept="ml-1", target_concept="ml-7", relationship_type="related"),
+        ConceptRelationship(
+            source_concept="ml-1", target_concept="ml-2", relationship_type="prerequisite"
+        ),
+        ConceptRelationship(
+            source_concept="ml-1", target_concept="ml-3", relationship_type="prerequisite"
+        ),
+        ConceptRelationship(
+            source_concept="ml-2", target_concept="ml-4", relationship_type="prerequisite"
+        ),
+        ConceptRelationship(
+            source_concept="ml-2", target_concept="ml-5", relationship_type="prerequisite"
+        ),
+        ConceptRelationship(
+            source_concept="ml-3", target_concept="ml-6", relationship_type="prerequisite"
+        ),
+        ConceptRelationship(
+            source_concept="ml-1", target_concept="ml-7", relationship_type="related"
+        ),
     ]
 
 
@@ -234,9 +249,11 @@ class TestEdgeCases:
     def test_single_node_graph(self):
         """A graph with one node produces root + that node."""
         kg = KnowledgeGraph()
-        kg.add_concepts([
-            make_concept("only-1", "Solo Concept", ["Solo Topic"]),
-        ])
+        kg.add_concepts(
+            [
+                make_concept("only-1", "Solo Concept", ["Solo Topic"]),
+            ]
+        )
         workflow = MindMapWorkflow(knowledge_graph=kg)
         result = workflow.generate("Solo Topic", max_depth=3)
 
@@ -248,11 +265,13 @@ class TestEdgeCases:
     def test_disconnected_nodes(self):
         """Nodes with no edges still appear in the mind map."""
         kg = KnowledgeGraph()
-        kg.add_concepts([
-            make_concept("d-1", "Concept A", ["Testing"]),
-            make_concept("d-2", "Concept B", ["Testing"]),
-            make_concept("d-3", "Concept C", ["Testing"]),
-        ])
+        kg.add_concepts(
+            [
+                make_concept("d-1", "Concept A", ["Testing"]),
+                make_concept("d-2", "Concept B", ["Testing"]),
+                make_concept("d-3", "Concept C", ["Testing"]),
+            ]
+        )
         workflow = MindMapWorkflow(knowledge_graph=kg)
         result = workflow.generate("Testing", max_depth=2)
 
@@ -262,11 +281,13 @@ class TestEdgeCases:
     def test_keyword_fallback_filtering(self):
         """If no exact topic match, falls back to name/keyword search."""
         kg = KnowledgeGraph()
-        kg.add_concepts([
-            make_concept("py-1", "Python Basics", ["Programming"], keywords=["python"]),
-            make_concept("py-2", "Python OOP", ["Programming"], keywords=["python", "oop"]),
-            make_concept("js-1", "JavaScript", ["Programming"], keywords=["javascript"]),
-        ])
+        kg.add_concepts(
+            [
+                make_concept("py-1", "Python Basics", ["Programming"], keywords=["python"]),
+                make_concept("py-2", "Python OOP", ["Programming"], keywords=["python", "oop"]),
+                make_concept("js-1", "JavaScript", ["Programming"], keywords=["javascript"]),
+            ]
+        )
         workflow = MindMapWorkflow(knowledge_graph=kg)
 
         # Search by keyword "python" — should find py-1 and py-2 but not js-1
@@ -306,9 +327,7 @@ class TestNodeTypes:
         concepts = [n for n in result.nodes if n.type == "concept"]
 
         # Concepts should have a subtopic as parent (or another concept)
-        subtopic_and_concept_ids = {
-            n.id for n in result.nodes if n.type in ("subtopic", "concept")
-        }
+        subtopic_and_concept_ids = {n.id for n in result.nodes if n.type in ("subtopic", "concept")}
         for node in concepts:
             assert node.parent_id in subtopic_and_concept_ids or node.parent_id is not None
 
@@ -329,6 +348,7 @@ class TestVisualization:
         workflow.visualize(result, output_path=output_file)
 
         import os
+
         assert os.path.exists(output_file)
 
     def test_visualize_empty_map_no_error(self, workflow: MindMapWorkflow):

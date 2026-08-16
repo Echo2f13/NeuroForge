@@ -38,21 +38,15 @@ class QuizQuestion(BaseModel):
 
     id: str = Field(..., min_length=1, description="Unique question identifier")
     question: str = Field(..., min_length=1, description="Question text")
-    question_type: str = Field(
-        ..., description="Question type: mcq, short_answer, or true_false"
-    )
+    question_type: str = Field(..., description="Question type: mcq, short_answer, or true_false")
     options: Optional[list[str]] = Field(
         default=None, description="Answer options (required for MCQ)"
     )
     correct_answer: str = Field(..., min_length=1, description="Correct answer")
-    explanation: str = Field(
-        ..., min_length=1, description="Explanation for the correct answer"
-    )
+    explanation: str = Field(..., min_length=1, description="Explanation for the correct answer")
     topic: str = Field(..., min_length=1, description="Topic covered")
     difficulty: Difficulty = Field(..., description="Difficulty level")
-    source_chunk_ids: list[str] = Field(
-        default_factory=list, description="Source chunk IDs"
-    )
+    source_chunk_ids: list[str] = Field(default_factory=list, description="Source chunk IDs")
 
     @field_validator("question_type")
     @classmethod
@@ -60,9 +54,7 @@ class QuizQuestion(BaseModel):
         """Validate that question_type is one of the allowed values."""
         allowed = {"mcq", "short_answer", "true_false"}
         if v not in allowed:
-            raise ValueError(
-                f"question_type must be one of {allowed}, got '{v}'"
-            )
+            raise ValueError(f"question_type must be one of {allowed}, got '{v}'")
         return v
 
     @model_validator(mode="after")
@@ -70,9 +62,7 @@ class QuizQuestion(BaseModel):
         """Validate that MCQ questions have exactly 4 options."""
         if self.question_type == "mcq":
             if self.options is None or len(self.options) != 4:
-                raise ValueError(
-                    "MCQ questions must have exactly 4 options"
-                )
+                raise ValueError("MCQ questions must have exactly 4 options")
         return self
 
     def to_dict(self) -> dict:
@@ -113,13 +103,9 @@ class Flashcard(BaseModel):
     answer: str = Field(..., min_length=1, description="Card back (answer)")
     hint: Optional[str] = Field(default=None, description="Hint for difficult cards")
     mnemonic: Optional[str] = Field(default=None, description="Mnemonic device")
-    related_topics: list[str] = Field(
-        default_factory=list, description="Related topic names"
-    )
+    related_topics: list[str] = Field(default_factory=list, description="Related topic names")
     difficulty: Difficulty = Field(..., description="Difficulty level")
-    source_chunk_ids: list[str] = Field(
-        default_factory=list, description="Source chunk IDs"
-    )
+    source_chunk_ids: list[str] = Field(default_factory=list, description="Source chunk IDs")
 
     def to_dict(self) -> dict:
         """Serialize to dictionary."""
@@ -157,12 +143,8 @@ class Solution(BaseModel):
     question: str = Field(..., min_length=1, description="Question text")
     marks: int = Field(..., ge=1, le=100, description="Marks allocated (1-100)")
     answer: str = Field(..., min_length=1, description="Full answer text")
-    marking_scheme: list[str] = Field(
-        default_factory=list, description="Marks breakdown by point"
-    )
-    key_points: list[str] = Field(
-        default_factory=list, description="Key points to cover"
-    )
+    marking_scheme: list[str] = Field(default_factory=list, description="Marks breakdown by point")
+    key_points: list[str] = Field(default_factory=list, description="Key points to cover")
     topic: str = Field(..., min_length=1, description="Topic")
 
     def to_dict(self) -> dict:
@@ -194,12 +176,8 @@ class SubtopicNote(BaseModel):
     """
 
     title: str = Field(..., min_length=1, description="Subtopic title")
-    points: list[str] = Field(
-        ..., min_length=1, description="Bullet points"
-    )
-    importance: str = Field(
-        default="medium", description="Importance: high, medium, or low"
-    )
+    points: list[str] = Field(..., min_length=1, description="Bullet points")
+    importance: str = Field(default="medium", description="Importance: high, medium, or low")
 
     @field_validator("importance")
     @classmethod
@@ -207,9 +185,7 @@ class SubtopicNote(BaseModel):
         """Validate that importance is one of the allowed values."""
         allowed = {"high", "medium", "low"}
         if v not in allowed:
-            raise ValueError(
-                f"importance must be one of {allowed}, got '{v}'"
-            )
+            raise ValueError(f"importance must be one of {allowed}, got '{v}'")
         return v
 
     def to_dict(self) -> dict:
@@ -245,18 +221,10 @@ class RevisionNote(BaseModel):
     """
 
     topic: str = Field(..., min_length=1, description="Main topic name")
-    subtopics: list[SubtopicNote] = Field(
-        default_factory=list, description="Subtopic notes"
-    )
-    key_terms: list[str] = Field(
-        default_factory=list, description="Key terms and definitions"
-    )
-    formulae: list[str] = Field(
-        default_factory=list, description="Relevant formulae"
-    )
-    mnemonics: list[str] = Field(
-        default_factory=list, description="Memory aids"
-    )
+    subtopics: list[SubtopicNote] = Field(default_factory=list, description="Subtopic notes")
+    key_terms: list[str] = Field(default_factory=list, description="Key terms and definitions")
+    formulae: list[str] = Field(default_factory=list, description="Relevant formulae")
+    mnemonics: list[str] = Field(default_factory=list, description="Memory aids")
 
     def to_dict(self) -> dict:
         """Serialize to dictionary."""
@@ -289,12 +257,8 @@ class MindMapNode(BaseModel):
 
     id: str = Field(..., min_length=1, description="Unique node identifier")
     label: str = Field(..., min_length=1, description="Display label")
-    type: str = Field(
-        ..., description="Node type: topic, subtopic, concept, or example"
-    )
-    parent_id: Optional[str] = Field(
-        default=None, description="Parent node ID (None for root)"
-    )
+    type: str = Field(..., description="Node type: topic, subtopic, concept, or example")
+    parent_id: Optional[str] = Field(default=None, description="Parent node ID (None for root)")
 
     @field_validator("type")
     @classmethod
@@ -302,9 +266,7 @@ class MindMapNode(BaseModel):
         """Validate that type is one of the allowed values."""
         allowed = {"topic", "subtopic", "concept", "example"}
         if v not in allowed:
-            raise ValueError(
-                f"type must be one of {allowed}, got '{v}'"
-            )
+            raise ValueError(f"type must be one of {allowed}, got '{v}'")
         return v
 
     def to_dict(self) -> dict:
@@ -334,9 +296,7 @@ class MindMap(BaseModel):
         edges: Connections between nodes (source, target, label).
     """
 
-    nodes: list[MindMapNode] = Field(
-        default_factory=list, description="Mind map nodes"
-    )
+    nodes: list[MindMapNode] = Field(default_factory=list, description="Mind map nodes")
     edges: list[dict] = Field(
         default_factory=list,
         description="Edges as dicts with 'source', 'target', 'label' keys",
@@ -348,9 +308,7 @@ class MindMap(BaseModel):
         """Validate that each edge has required keys."""
         for edge in v:
             if "source" not in edge or "target" not in edge:
-                raise ValueError(
-                    "Each edge must have 'source' and 'target' keys"
-                )
+                raise ValueError("Each edge must have 'source' and 'target' keys")
         return v
 
     def to_dict(self) -> dict:

@@ -14,7 +14,7 @@ from typing import Optional
 import networkx as nx
 from networkx.readwrite import json_graph
 
-from models import Concept, ConceptRelationship, Difficulty
+from models import Concept, ConceptRelationship
 
 
 class KnowledgeGraph:
@@ -159,9 +159,7 @@ class KnowledgeGraph:
             and all edges between them.
         """
         matching_nodes = [
-            node
-            for node, data in self.graph.nodes(data=True)
-            if topic in data.get("topics", [])
+            node for node, data in self.graph.nodes(data=True) if topic in data.get("topics", [])
         ]
         return self.graph.subgraph(matching_nodes).copy()
 
@@ -225,9 +223,7 @@ class KnowledgeGraph:
         ]
 
         # Labels are concept names (fall back to IDs)
-        labels = {
-            n: self.graph.nodes[n].get("name", n) for n in self.graph.nodes()
-        }
+        labels = {n: self.graph.nodes[n].get("name", n) for n in self.graph.nodes()}
 
         fig, ax = plt.subplots(1, 1, figsize=(12, 8))
         pos = nx.spring_layout(self.graph, seed=42)

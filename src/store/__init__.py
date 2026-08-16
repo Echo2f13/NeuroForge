@@ -12,7 +12,7 @@ from .subject_vector_store import SubjectScopedVectorStore, get_collection_names
 from .vector_store import VectorStore
 
 __all__ = [
-    "VectorStore", 
+    "VectorStore",
     "KnowledgeGraph",
     "SubjectScopedVectorStore",
     "get_collection_names",

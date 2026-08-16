@@ -42,13 +42,9 @@ class DocumentMetadata(BaseModel):
     source: str = Field(..., description="File path or URL of the source document")
     format: InputFormat = Field(..., description="Detected input format type")
     title: Optional[str] = Field(default=None, description="Document title")
-    total_pages: Optional[int] = Field(
-        default=None, ge=1, description="Total number of pages"
-    )
+    total_pages: Optional[int] = Field(default=None, ge=1, description="Total number of pages")
     author: Optional[str] = Field(default=None, description="Document author")
-    created_at: Optional[str] = Field(
-        default=None, description="Creation timestamp (ISO format)"
-    )
+    created_at: Optional[str] = Field(default=None, description="Creation timestamp (ISO format)")
 
     def to_dict(self) -> dict:
         """Serialize to dictionary."""
@@ -82,9 +78,7 @@ class Section(BaseModel):
     heading: Optional[str] = Field(default=None, description="Section heading text")
     content: str = Field(..., min_length=1, description="Section text content")
     level: int = Field(default=1, ge=1, le=6, description="Heading level (1-6)")
-    page_number: Optional[int] = Field(
-        default=None, ge=1, description="Starting page number"
-    )
+    page_number: Optional[int] = Field(default=None, ge=1, description="Starting page number")
 
     def to_dict(self) -> dict:
         """Serialize to dictionary."""
@@ -144,10 +138,10 @@ class Document(BaseModel):
 
 class StoredDocument(BaseModel):
     """A document file stored for viewing and source attribution.
-    
+
     Represents a document that has been uploaded and stored on the
     filesystem, enabling later viewing in the document viewer.
-    
+
     Attributes:
         id: Unique document identifier.
         subject_id: ID of the subject this document belongs to.
@@ -161,42 +155,40 @@ class StoredDocument(BaseModel):
         title: Optional document title (extracted or user-provided).
         author: Optional document author.
     """
-    
+
     id: str = Field(..., min_length=1, description="Unique document identifier")
     subject_id: str = Field(..., min_length=1, description="Owning subject ID")
     filename: str = Field(..., min_length=1, description="Original filename")
     format: InputFormat = Field(..., description="Document format")
     storage_path: str = Field(..., min_length=1, description="Relative path to stored file")
     file_size: int = Field(..., ge=0, description="File size in bytes")
-    total_pages: Optional[int] = Field(
-        default=None, ge=1, description="Total number of pages"
-    )
+    total_pages: Optional[int] = Field(default=None, ge=1, description="Total number of pages")
     uploaded_at: str = Field(..., description="Upload timestamp (ISO format)")
     checksum: str = Field(..., min_length=64, max_length=64, description="SHA-256 hash")
     title: Optional[str] = Field(default=None, description="Document title")
     author: Optional[str] = Field(default=None, description="Document author")
-    
+
     def to_dict(self) -> dict:
         """Serialize to dictionary."""
         return self.model_dump()
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "StoredDocument":
         """Deserialize from dictionary."""
         return cls.model_validate(data)
-    
+
     def to_json(self) -> str:
         """Serialize to JSON string."""
         return self.model_dump_json(indent=2)
-    
+
     @classmethod
     def from_json(cls, json_str: str) -> "StoredDocument":
         """Deserialize from JSON string."""
         return cls.model_validate_json(json_str)
-    
+
     def get_content_type(self) -> str:
         """Get the MIME content type for this document format.
-        
+
         Returns:
             MIME type string for the document format.
         """
@@ -209,11 +201,11 @@ class StoredDocument(BaseModel):
             InputFormat.IMAGE: "image/png",  # Default, should detect actual type
         }
         return content_types.get(self.format, "application/octet-stream")
-    
+
     @property
     def display_size(self) -> str:
         """Get human-readable file size.
-        
+
         Returns:
             Formatted file size string (e.g., "2.5 MB").
         """

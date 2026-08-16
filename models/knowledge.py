@@ -14,7 +14,6 @@ Defines models for knowledge extraction results:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -44,16 +43,10 @@ class Concept(BaseModel):
     id: str = Field(..., min_length=1, description="Unique concept identifier")
     name: str = Field(..., min_length=1, description="Concept name")
     definition: str = Field(..., min_length=1, description="Concept definition")
-    topics: list[str] = Field(
-        ..., min_length=1, description="Topics this concept belongs to"
-    )
+    topics: list[str] = Field(..., min_length=1, description="Topics this concept belongs to")
     difficulty: Difficulty = Field(..., description="Difficulty level")
-    prerequisites: list[str] = Field(
-        default_factory=list, description="Prerequisite concept IDs"
-    )
-    keywords: list[str] = Field(
-        default_factory=list, description="Associated keywords"
-    )
+    prerequisites: list[str] = Field(default_factory=list, description="Prerequisite concept IDs")
+    keywords: list[str] = Field(default_factory=list, description="Associated keywords")
     source_chunk_ids: list[str] = Field(
         default_factory=list, description="Source chunk IDs for traceability"
     )
@@ -86,12 +79,8 @@ class ConceptRelationship(BaseModel):
         relationship_type: Type of relationship (prerequisite, related, part_of).
     """
 
-    source_concept: str = Field(
-        ..., min_length=1, description="Source concept identifier"
-    )
-    target_concept: str = Field(
-        ..., min_length=1, description="Target concept identifier"
-    )
+    source_concept: str = Field(..., min_length=1, description="Source concept identifier")
+    target_concept: str = Field(..., min_length=1, description="Target concept identifier")
     relationship_type: str = Field(
         ..., min_length=1, description="Relationship type (prerequisite, related, part_of)"
     )
@@ -102,9 +91,7 @@ class ConceptRelationship(BaseModel):
         """Validate that relationship_type is one of the allowed values."""
         allowed = {"prerequisite", "related", "part_of"}
         if v not in allowed:
-            raise ValueError(
-                f"relationship_type must be one of {allowed}, got '{v}'"
-            )
+            raise ValueError(f"relationship_type must be one of {allowed}, got '{v}'")
         return v
 
     def to_dict(self) -> dict:
@@ -140,12 +127,8 @@ class Formula(BaseModel):
     description: str = Field(
         ..., min_length=1, description="Description of what the formula represents"
     )
-    context: str = Field(
-        ..., min_length=1, description="Context of formula usage"
-    )
-    source_chunk_id: str = Field(
-        ..., min_length=1, description="Source chunk identifier"
-    )
+    context: str = Field(..., min_length=1, description="Context of formula usage")
+    source_chunk_id: str = Field(..., min_length=1, description="Source chunk identifier")
 
     def to_dict(self) -> dict:
         """Serialize to dictionary."""
@@ -178,12 +161,8 @@ class Example(BaseModel):
 
     title: str = Field(..., min_length=1, description="Example title")
     content: str = Field(..., min_length=1, description="Example content")
-    related_concepts: list[str] = Field(
-        default_factory=list, description="Related concept IDs"
-    )
-    source_chunk_id: str = Field(
-        ..., min_length=1, description="Source chunk identifier"
-    )
+    related_concepts: list[str] = Field(default_factory=list, description="Related concept IDs")
+    source_chunk_id: str = Field(..., min_length=1, description="Source chunk identifier")
 
     def to_dict(self) -> dict:
         """Serialize to dictionary."""
@@ -216,12 +195,8 @@ class KeyDate(BaseModel):
 
     date: str = Field(..., min_length=1, description="Date string")
     event: str = Field(..., min_length=1, description="Event description")
-    significance: str = Field(
-        ..., min_length=1, description="Why this date is important"
-    )
-    source_chunk_id: str = Field(
-        ..., min_length=1, description="Source chunk identifier"
-    )
+    significance: str = Field(..., min_length=1, description="Why this date is important")
+    source_chunk_id: str = Field(..., min_length=1, description="Source chunk identifier")
 
     def to_dict(self) -> dict:
         """Serialize to dictionary."""
@@ -254,12 +229,8 @@ class KeyPerson(BaseModel):
 
     name: str = Field(..., min_length=1, description="Person's name")
     role: str = Field(..., min_length=1, description="Role or title")
-    contribution: str = Field(
-        ..., min_length=1, description="Key contribution or significance"
-    )
-    source_chunk_id: str = Field(
-        ..., min_length=1, description="Source chunk identifier"
-    )
+    contribution: str = Field(..., min_length=1, description="Key contribution or significance")
+    source_chunk_id: str = Field(..., min_length=1, description="Source chunk identifier")
 
     def to_dict(self) -> dict:
         """Serialize to dictionary."""
@@ -294,24 +265,14 @@ class KnowledgeExtraction(BaseModel):
         key_people: Important people.
     """
 
-    concepts: list[Concept] = Field(
-        default_factory=list, description="Extracted concepts"
-    )
+    concepts: list[Concept] = Field(default_factory=list, description="Extracted concepts")
     relationships: list[ConceptRelationship] = Field(
         default_factory=list, description="Concept relationships"
     )
-    formulae: list[Formula] = Field(
-        default_factory=list, description="Extracted formulae"
-    )
-    examples: list[Example] = Field(
-        default_factory=list, description="Extracted examples"
-    )
-    key_dates: list[KeyDate] = Field(
-        default_factory=list, description="Important dates"
-    )
-    key_people: list[KeyPerson] = Field(
-        default_factory=list, description="Important people"
-    )
+    formulae: list[Formula] = Field(default_factory=list, description="Extracted formulae")
+    examples: list[Example] = Field(default_factory=list, description="Extracted examples")
+    key_dates: list[KeyDate] = Field(default_factory=list, description="Important dates")
+    key_people: list[KeyPerson] = Field(default_factory=list, description="Important people")
 
     def to_dict(self) -> dict:
         """Serialize to dictionary."""

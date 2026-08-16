@@ -5,13 +5,13 @@ enabling isolated learning environments per subject.
 """
 
 from .manager import SubjectManager
-from .storage import SubjectStorage
 from .migration import (
-    needs_migration,
+    cleanup_old_files,
     get_migration_info,
     migrate_to_subjects,
-    cleanup_old_files,
+    needs_migration,
 )
+from .storage import SubjectStorage
 
 __all__ = [
     "SubjectManager",

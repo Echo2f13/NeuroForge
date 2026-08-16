@@ -12,7 +12,6 @@ import pytest
 from models import Concept, ConceptRelationship, Difficulty
 from src.store.knowledge_graph import KnowledgeGraph
 
-
 # ------------------------------------------------------------------
 # Fixtures
 # ------------------------------------------------------------------

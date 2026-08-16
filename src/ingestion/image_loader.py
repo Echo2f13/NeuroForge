@@ -23,7 +23,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from models import Document, DocumentMetadata, Section, InputFormat
+from models import Document, DocumentMetadata, InputFormat, Section
 
 logger = logging.getLogger("neuroforge.image_loader")
 
@@ -122,9 +122,7 @@ class ImageLoader:
         has_diagrams = self._detect_diagrams(sorted_results, img_width, img_height)
 
         # Determine if handwriting is likely
-        is_handwritten = (
-            avg_confidence < _HANDWRITING_CONFIDENCE_THRESHOLD and len(texts) > 0
-        )
+        is_handwritten = avg_confidence < _HANDWRITING_CONFIDENCE_THRESHOLD and len(texts) > 0
 
         # Build metadata
         title = f"OCR: {path.name}"
@@ -199,9 +197,7 @@ class ImageLoader:
             )
         return path
 
-    def _ocr_with_paddleocr(
-        self, image_path: str
-    ) -> Optional[list[tuple[list, str, float]]]:
+    def _ocr_with_paddleocr(self, image_path: str) -> Optional[list[tuple[list, str, float]]]:
         """Attempt OCR using PaddleOCR.
 
         Returns:
@@ -368,9 +364,7 @@ class ImageLoader:
             x_spread = (max(centroids_x) - min(centroids_x)) / image_width
             y_spread = (max(centroids_y) - min(centroids_y)) / image_height
             coverage_spread = x_spread * y_spread
-            is_scattered = (
-                coverage_spread > _DIAGRAM_SCATTER_THRESHOLD and text_density < 0.1
-            )
+            is_scattered = coverage_spread > _DIAGRAM_SCATTER_THRESHOLD and text_density < 0.1
         else:
             is_scattered = False
 

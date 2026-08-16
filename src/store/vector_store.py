@@ -12,7 +12,7 @@ from typing import Optional
 import chromadb
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
-from models import Chunk, ChunkMetadata, Concept
+from models import Chunk, Concept
 
 
 class VectorStore:
@@ -48,9 +48,7 @@ class VectorStore:
         else:
             self._client = chromadb.PersistentClient(path=persist_directory)
 
-        self._embedding_fn = SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2"
-        )
+        self._embedding_fn = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
 
         self._chunks_collection: Optional[chromadb.Collection] = None
         self._concepts_collection: Optional[chromadb.Collection] = None
@@ -175,9 +173,7 @@ class VectorStore:
         Returns:
             Dictionary with id, document, and metadata fields.
         """
-        result = self.concepts_collection.get(
-            ids=[concept_id], include=["documents", "metadatas"]
-        )
+        result = self.concepts_collection.get(ids=[concept_id], include=["documents", "metadatas"])
         if not result["ids"]:
             return {}
         return {

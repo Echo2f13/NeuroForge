@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -231,7 +231,7 @@ class IntentRouter:
             Exception: If LLM call fails.
         """
         result, _usage = self.llm_client.generate_json(
-            prompt=f"Classify this user input:\n\n\"{user_input}\"",
+            prompt=f'Classify this user input:\n\n"{user_input}"',
             response_model=IntentResult,
             system_prompt=CLASSIFICATION_SYSTEM_PROMPT,
             temperature=0.1,
@@ -239,8 +239,14 @@ class IntentRouter:
 
         # Validate the intent is in our expected set
         valid_intents = {
-            "quiz", "flashcard", "notes", "explain",
-            "solution", "mind_map", "additional_info", "chat",
+            "quiz",
+            "flashcard",
+            "notes",
+            "explain",
+            "solution",
+            "mind_map",
+            "additional_info",
+            "chat",
         }
         intent = result.intent if result.intent in valid_intents else "chat"
 
@@ -284,8 +290,7 @@ class IntentRouter:
             kwargs["marks"] = parameters["marks"]
 
         logger.info(
-            f"Routing to '{effective_intent}' workflow | "
-            f"topic='{topic}' | params={kwargs}"
+            f"Routing to '{effective_intent}' workflow | " f"topic='{topic}' | params={kwargs}"
         )
 
         # Call the workflow — assume it has a `generate` method or is callable
@@ -294,7 +299,9 @@ class IntentRouter:
         elif callable(workflow):
             return workflow(topic=topic, **kwargs)
         else:
-            logger.error(f"Workflow '{effective_intent}' is not callable and has no generate method.")
+            logger.error(
+                f"Workflow '{effective_intent}' is not callable and has no generate method."
+            )
             return None
 
     # -----------------------------------------------------------------------
@@ -344,16 +351,86 @@ class IntentRouter:
 
 # Words to strip when extracting the topic
 _STOP_WORDS = {
-    "generate", "create", "make", "give", "me", "i", "want", "need", "please",
-    "can", "you", "some", "a", "an", "the", "on", "about", "for", "of", "in",
-    "with", "and", "or", "to", "from", "my", "do", "how", "what", "is", "are",
-    "was", "were", "be", "been", "being", "have", "has", "had", "having",
-    "quiz", "test", "exam", "questions", "question", "flashcard", "flashcards",
-    "card", "cards", "notes", "revision", "summary", "explain", "define",
-    "definition", "solution", "answer", "solve", "mind", "map", "concept",
-    "diagram", "application", "industry", "interview", "mistake", "real",
-    "world", "easy", "medium", "hard", "difficult", "simple", "basic",
-    "advanced", "marks", "mark", "items", "problems", "problem",
+    "generate",
+    "create",
+    "make",
+    "give",
+    "me",
+    "i",
+    "want",
+    "need",
+    "please",
+    "can",
+    "you",
+    "some",
+    "a",
+    "an",
+    "the",
+    "on",
+    "about",
+    "for",
+    "of",
+    "in",
+    "with",
+    "and",
+    "or",
+    "to",
+    "from",
+    "my",
+    "do",
+    "how",
+    "what",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "having",
+    "quiz",
+    "test",
+    "exam",
+    "questions",
+    "question",
+    "flashcard",
+    "flashcards",
+    "card",
+    "cards",
+    "notes",
+    "revision",
+    "summary",
+    "explain",
+    "define",
+    "definition",
+    "solution",
+    "answer",
+    "solve",
+    "mind",
+    "map",
+    "concept",
+    "diagram",
+    "application",
+    "industry",
+    "interview",
+    "mistake",
+    "real",
+    "world",
+    "easy",
+    "medium",
+    "hard",
+    "difficult",
+    "simple",
+    "basic",
+    "advanced",
+    "marks",
+    "mark",
+    "items",
+    "problems",
+    "problem",
 }
 
 # Pattern to strip numbers with unit words (e.g., "5 questions")

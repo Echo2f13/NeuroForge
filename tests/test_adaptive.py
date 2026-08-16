@@ -4,13 +4,9 @@ Tests difficulty recommendations, quiz/flashcard parameter adjustments,
 and adaptation over multiple rounds of score changes.
 """
 
-import tempfile
-from pathlib import Path
-
 import pytest
 
 from src.memory import AdaptiveDifficulty, ProgressTracker
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

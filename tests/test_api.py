@@ -46,7 +46,7 @@ class TestHealthEndpoints:
 @pytest.mark.skipif(True, reason="Requires running server with lifespan")
 class TestLiveEndpoints:
     """Tests that require a running server.
-    
+
     Run these against a live server:
     pytest tests/test_api.py -v -m "not skipif"
     """
@@ -67,34 +67,22 @@ class TestValidation:
 
     def test_quiz_missing_topic(self, client):
         """Test quiz without topic fails validation."""
-        response = client.post(
-            "/quiz",
-            json={"num_questions": 5}  # Missing required 'topic'
-        )
+        response = client.post("/quiz", json={"num_questions": 5})  # Missing required 'topic'
         assert response.status_code == 422  # Validation error
 
     def test_flashcard_missing_topic(self, client):
         """Test flashcard without topic fails validation."""
-        response = client.post(
-            "/flashcards",
-            json={"num_cards": 5}  # Missing required 'topic'
-        )
+        response = client.post("/flashcards", json={"num_cards": 5})  # Missing required 'topic'
         assert response.status_code == 422
 
     def test_chat_missing_message(self, client):
         """Test chat without message fails validation."""
-        response = client.post(
-            "/chat",
-            json={}  # Missing required 'message'
-        )
+        response = client.post("/chat", json={})  # Missing required 'message'
         assert response.status_code == 422
 
     def test_solution_missing_question(self, client):
         """Test solution without question fails validation."""
-        response = client.post(
-            "/solution",
-            json={"marks": 5}  # Missing required 'question'
-        )
+        response = client.post("/solution", json={"marks": 5})  # Missing required 'question'
         assert response.status_code == 422
 
 
@@ -113,7 +101,7 @@ class TestEndpointStructure:
         data = response.json()
         assert "openapi" in data
         assert "paths" in data
-        
+
         # Verify key endpoints exist
         paths = data["paths"]
         assert "/" in paths

@@ -22,7 +22,6 @@ import json
 from datetime import date, timedelta
 from pathlib import Path
 
-
 # Default initial ease factor per SM-2
 _DEFAULT_EASE_FACTOR = 2.5
 _MIN_EASE_FACTOR = 1.3

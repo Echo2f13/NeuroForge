@@ -68,7 +68,7 @@ export function DocumentViewer({
   onPageChange,
 }: DocumentViewerProps) {
   const [currentPage, setCurrentPage] = useState(targetPage);
-  const [numPages, setNumPages] = useState<number | null>(document.total_pages || null);
+  const [_numPages, setNumPages] = useState<number | null>(document.total_pages || null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [textContent, setTextContent] = useState<string | null>(null);

@@ -4,14 +4,12 @@ Tests the RevisionNotesWorkflow pipeline with mocked LLM and Retriever
 to verify the retrieve → generate → format flow works correctly.
 """
 
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from models.output import RevisionNote, SubtopicNote
 from src.workflows.revision_notes import RevisionNotesWorkflow
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -159,9 +157,7 @@ class TestRevisionNotesWorkflowInit:
 
 
 class TestRevisionNotesGenerate:
-    def test_generate_returns_revision_note(
-        self, mock_retriever, mock_llm_client
-    ):
+    def test_generate_returns_revision_note(self, mock_retriever, mock_llm_client):
         workflow = RevisionNotesWorkflow(
             retriever=mock_retriever,
             llm_client=mock_llm_client,
@@ -226,13 +222,9 @@ class TestRevisionNotesGenerate:
 
         workflow.generate("Photosynthesis")
 
-        mock_retriever.hybrid_retrieval.assert_called_once_with(
-            query="Photosynthesis", top_k=5
-        )
+        mock_retriever.hybrid_retrieval.assert_called_once_with(query="Photosynthesis", top_k=5)
 
-    def test_generate_calls_llm_with_context(
-        self, mock_retriever, mock_llm_client
-    ):
+    def test_generate_calls_llm_with_context(self, mock_retriever, mock_llm_client):
         workflow = RevisionNotesWorkflow(
             retriever=mock_retriever,
             llm_client=mock_llm_client,
@@ -255,9 +247,7 @@ class TestRevisionNotesGenerate:
 
 
 class TestContextRetrieval:
-    def test_falls_back_to_semantic_when_hybrid_empty(
-        self, mock_retriever, mock_llm_client
-    ):
+    def test_falls_back_to_semantic_when_hybrid_empty(self, mock_retriever, mock_llm_client):
         mock_retriever.hybrid_retrieval.return_value = []
 
         workflow = RevisionNotesWorkflow(
@@ -267,13 +257,9 @@ class TestContextRetrieval:
 
         workflow.generate("Photosynthesis")
 
-        mock_retriever.semantic_search.assert_called_once_with(
-            query="Photosynthesis", top_k=8
-        )
+        mock_retriever.semantic_search.assert_called_once_with(query="Photosynthesis", top_k=8)
 
-    def test_context_includes_chunk_content(
-        self, mock_retriever, mock_llm_client
-    ):
+    def test_context_includes_chunk_content(self, mock_retriever, mock_llm_client):
         workflow = RevisionNotesWorkflow(
             retriever=mock_retriever,
             llm_client=mock_llm_client,
@@ -287,9 +273,7 @@ class TestContextRetrieval:
         assert "Photosynthesis is the process" in prompt
         assert "light-dependent reactions" in prompt.lower() or "light" in prompt.lower()
 
-    def test_empty_retrieval_uses_topic_as_context(
-        self, mock_retriever, mock_llm_client
-    ):
+    def test_empty_retrieval_uses_topic_as_context(self, mock_retriever, mock_llm_client):
         mock_retriever.hybrid_retrieval.return_value = []
         mock_retriever.semantic_search.return_value = []
 

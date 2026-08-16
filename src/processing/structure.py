@@ -132,9 +132,7 @@ class StructureExtractor:
     )
 
     # Bullet list item: -, *, + or • with content
-    BULLET_ITEM_PATTERN = re.compile(
-        r"^(?P<indent>[ \t]*)(?P<marker>[-*+•])\s+\S", re.MULTILINE
-    )
+    BULLET_ITEM_PATTERN = re.compile(r"^(?P<indent>[ \t]*)(?P<marker>[-*+•])\s+\S", re.MULTILINE)
 
     # Numbered list item: 1. or 1) with content
     NUMBERED_ITEM_PATTERN = re.compile(
@@ -188,9 +186,7 @@ class StructureExtractor:
             level = len(match.group(1))
             heading = match.group(2).strip()
             content_start = match.end()
-            content_end = (
-                matches[i + 1].start() if i + 1 < len(matches) else len(text)
-            )
+            content_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
 
             node = SectionNode(
                 heading=heading,
@@ -242,9 +238,7 @@ class StructureExtractor:
 
             # Count columns from header row
             header_row = match.group(1)
-            columns = len(
-                [c.strip() for c in header_row.strip("|").split("|") if c.strip()]
-            )
+            columns = len([c.strip() for c in header_row.strip("|").split("|") if c.strip()])
 
             # Count rows (header + data rows)
             data_rows = match.group(3).strip().splitlines()
@@ -267,8 +261,7 @@ class StructureExtractor:
 
             # Skip if this region overlaps with a pipe table
             if any(
-                t.start_char <= start_char < t.end_char
-                or t.start_char < end_char <= t.end_char
+                t.start_char <= start_char < t.end_char or t.start_char < end_char <= t.end_char
                 for t in tables
             ):
                 continue
@@ -404,9 +397,7 @@ class StructureExtractor:
 
         return code_blocks
 
-    def annotate_chunks(
-        self, chunks: list[Chunk], structure: DocumentStructure
-    ) -> list[Chunk]:
+    def annotate_chunks(self, chunks: list[Chunk], structure: DocumentStructure) -> list[Chunk]:
         """Add structure info to chunk metadata.
 
         For each chunk, determines which structural elements it contains
@@ -425,9 +416,7 @@ class StructureExtractor:
             annotations: dict = {}
 
             # Find overlapping sections
-            sections = self._find_overlapping_sections(
-                structure.sections, start, end
-            )
+            sections = self._find_overlapping_sections(structure.sections, start, end)
             if sections:
                 annotations["sections"] = sections
 
@@ -485,13 +474,9 @@ class StructureExtractor:
 
         for section in sections:
             if self._overlaps(section.content_start, section.content_end, start, end):
-                results.append(
-                    {"heading": section.heading, "level": section.level}
-                )
+                results.append({"heading": section.heading, "level": section.level})
                 # Also check children
-                child_results = self._find_overlapping_sections(
-                    section.children, start, end
-                )
+                child_results = self._find_overlapping_sections(section.children, start, end)
                 results.extend(child_results)
 
         return results

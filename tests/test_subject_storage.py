@@ -20,7 +20,6 @@ from src.store.subject_vector_store import (
     get_collection_names,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -213,9 +212,7 @@ class TestCollectionNaming:
 class TestChunkIsolation:
     """Tests that chunks are properly isolated between subjects."""
 
-    def test_chunks_stored_in_correct_collection(
-        self, vector_store, math_chunks, physics_chunks
-    ):
+    def test_chunks_stored_in_correct_collection(self, vector_store, math_chunks, physics_chunks):
         """Test chunks are stored in subject-specific collections."""
         vector_store.add_chunks("math", math_chunks)
         vector_store.add_chunks("physics", physics_chunks)
@@ -227,9 +224,7 @@ class TestChunkIsolation:
         assert math_stats["chunk_count"] == 3
         assert physics_stats["chunk_count"] == 2
 
-    def test_chunk_retrieval_by_subject(
-        self, vector_store, math_chunks, physics_chunks
-    ):
+    def test_chunk_retrieval_by_subject(self, vector_store, math_chunks, physics_chunks):
         """Test retrieving chunks returns only that subject's chunks."""
         vector_store.add_chunks("math", math_chunks)
         vector_store.add_chunks("physics", physics_chunks)
@@ -259,9 +254,7 @@ class TestChunkIsolation:
         result = vector_store.get_chunk("math", "physics-chunk-1")
         assert result == {}
 
-    def test_chunk_metadata_includes_subject_id(
-        self, vector_store, math_chunks
-    ):
+    def test_chunk_metadata_includes_subject_id(self, vector_store, math_chunks):
         """Test chunk metadata correctly includes subject_id."""
         vector_store.add_chunks("math", math_chunks)
 
@@ -298,9 +291,7 @@ class TestConceptIsolation:
         assert math_stats["concept_count"] == 2
         assert physics_stats["concept_count"] == 2
 
-    def test_concept_retrieval_by_subject(
-        self, vector_store, math_concepts, physics_concepts
-    ):
+    def test_concept_retrieval_by_subject(self, vector_store, math_concepts, physics_concepts):
         """Test retrieving concepts returns only that subject's concepts."""
         vector_store.add_concepts("math", math_concepts)
         vector_store.add_concepts("physics", physics_concepts)
@@ -330,9 +321,7 @@ class TestConceptIsolation:
         result = vector_store.get_concept("math", "physics-concept-1")
         assert result == {}
 
-    def test_concept_metadata_includes_subject_id(
-        self, vector_store, math_concepts
-    ):
+    def test_concept_metadata_includes_subject_id(self, vector_store, math_concepts):
         """Test concept metadata correctly includes subject_id."""
         vector_store.add_concepts("math", math_concepts)
 
@@ -358,7 +347,7 @@ class TestSubjectScopedSearch:
 
         # Search for "change" - should only get math results
         results = vector_store.search_chunks("math", "rate of change")
-        
+
         assert len(results) > 0
         for result in results:
             assert result["metadata"]["subject_id"] == "math"
@@ -375,7 +364,7 @@ class TestSubjectScopedSearch:
 
         # Search for "physics-related" term in math collection
         results = vector_store.search_concepts("math", "mathematical analysis")
-        
+
         assert len(results) > 0
         for result in results:
             assert result["metadata"]["subject_id"] == "math"
@@ -388,9 +377,7 @@ class TestSubjectScopedSearch:
         results = vector_store.search_chunks("empty-subject", "calculus")
         assert results == []
 
-    def test_search_with_metadata_filter(
-        self, vector_store, math_chunks
-    ):
+    def test_search_with_metadata_filter(self, vector_store, math_chunks):
         """Test search with metadata filter works correctly."""
         vector_store.add_chunks("math", math_chunks)
 
@@ -400,7 +387,7 @@ class TestSubjectScopedSearch:
             "mathematical study",
             where={"document_id": "math-doc-1"},
         )
-        
+
         assert len(results) > 0
         for result in results:
             assert result["metadata"]["document_id"] == "math-doc-1"
@@ -421,9 +408,7 @@ class TestSubjectScopedSearch:
 class TestCrossSubjectSearch:
     """Tests for searching across multiple subjects."""
 
-    def test_search_all_subjects_chunks(
-        self, vector_store, math_chunks, physics_chunks
-    ):
+    def test_search_all_subjects_chunks(self, vector_store, math_chunks, physics_chunks):
         """Test cross-subject chunk search returns results from all subjects."""
         vector_store.add_chunks("math", math_chunks)
         vector_store.add_chunks("physics", physics_chunks)
@@ -439,9 +424,7 @@ class TestCrossSubjectSearch:
         subject_ids_in_results = {r["subject_id"] for r in results}
         assert "math" in subject_ids_in_results or "physics" in subject_ids_in_results
 
-    def test_search_all_subjects_concepts(
-        self, vector_store, math_concepts, physics_concepts
-    ):
+    def test_search_all_subjects_concepts(self, vector_store, math_concepts, physics_concepts):
         """Test cross-subject concept search returns results from all subjects."""
         vector_store.add_concepts("math", math_concepts)
         vector_store.add_concepts("physics", physics_concepts)
@@ -458,9 +441,7 @@ class TestCrossSubjectSearch:
             assert "subject_id" in result
             assert result["subject_id"] in ["math", "physics"]
 
-    def test_search_all_subjects_sorted_by_score(
-        self, vector_store, math_chunks, physics_chunks
-    ):
+    def test_search_all_subjects_sorted_by_score(self, vector_store, math_chunks, physics_chunks):
         """Test cross-subject search results are sorted by score."""
         vector_store.add_chunks("math", math_chunks)
         vector_store.add_chunks("physics", physics_chunks)
@@ -476,9 +457,7 @@ class TestCrossSubjectSearch:
         scores = [r.get("score", 0) for r in results]
         assert scores == sorted(scores, reverse=True)
 
-    def test_search_all_subjects_respects_top_k(
-        self, vector_store, math_chunks, physics_chunks
-    ):
+    def test_search_all_subjects_respects_top_k(self, vector_store, math_chunks, physics_chunks):
         """Test cross-subject search respects top_k limit."""
         vector_store.add_chunks("math", math_chunks)
         vector_store.add_chunks("physics", physics_chunks)
@@ -492,9 +471,7 @@ class TestCrossSubjectSearch:
 
         assert len(results) <= 3
 
-    def test_search_all_subjects_with_empty_subject(
-        self, vector_store, math_chunks
-    ):
+    def test_search_all_subjects_with_empty_subject(self, vector_store, math_chunks):
         """Test cross-subject search handles empty subjects gracefully."""
         vector_store.add_chunks("math", math_chunks)
         # Don't add anything to physics
@@ -520,9 +497,7 @@ class TestCrossSubjectSearch:
 class TestSubjectDeletionCleanup:
     """Tests that subject deletion properly cleans up collections."""
 
-    def test_delete_subject_removes_collections(
-        self, vector_store, math_chunks, math_concepts
-    ):
+    def test_delete_subject_removes_collections(self, vector_store, math_chunks, math_concepts):
         """Test deleting a subject removes its collections."""
         vector_store.add_chunks("math", math_chunks)
         vector_store.add_concepts("math", math_concepts)
@@ -563,9 +538,7 @@ class TestSubjectDeletionCleanup:
         # Should not raise any exceptions
         vector_store.delete_subject_collections("nonexistent-subject")
 
-    def test_delete_subject_clears_cache(
-        self, vector_store, math_chunks
-    ):
+    def test_delete_subject_clears_cache(self, vector_store, math_chunks):
         """Test deleting subject clears internal collection cache."""
         vector_store.add_chunks("math", math_chunks)
 
@@ -594,7 +567,7 @@ class TestCollectionManagement:
 
         assert chunks_coll is not None
         assert concepts_coll is not None
-        
+
         collections = vector_store.list_all_collections()
         assert "subject_new_subject_chunks" in collections
         assert "subject_new_subject_concepts" in collections
@@ -603,22 +576,20 @@ class TestCollectionManagement:
         """Test collections are cached after first access."""
         # First access
         coll1_chunks, coll1_concepts = vector_store.get_collections("test-subject")
-        
+
         # Second access should return same objects
         coll2_chunks, coll2_concepts = vector_store.get_collections("test-subject")
-        
+
         assert coll1_chunks is coll2_chunks
         assert coll1_concepts is coll2_concepts
 
-    def test_list_all_collections(
-        self, vector_store, math_chunks, physics_chunks
-    ):
+    def test_list_all_collections(self, vector_store, math_chunks, physics_chunks):
         """Test listing all collections in the database."""
         vector_store.add_chunks("math", math_chunks)
         vector_store.add_chunks("physics", physics_chunks)
 
         collections = vector_store.list_all_collections()
-        
+
         assert "subject_math_chunks" in collections
         assert "subject_math_concepts" in collections
         assert "subject_physics_chunks" in collections
@@ -633,15 +604,13 @@ class TestCollectionManagement:
 class TestStatistics:
     """Tests for statistics operations."""
 
-    def test_get_stats_single_subject(
-        self, vector_store, math_chunks, math_concepts
-    ):
+    def test_get_stats_single_subject(self, vector_store, math_chunks, math_concepts):
         """Test getting stats for a single subject."""
         vector_store.add_chunks("math", math_chunks)
         vector_store.add_concepts("math", math_concepts)
 
         stats = vector_store.get_stats("math")
-        
+
         assert stats["chunk_count"] == 3
         assert stats["concept_count"] == 2
 
@@ -649,9 +618,9 @@ class TestStatistics:
         """Test getting stats for empty subject."""
         # Access collections to create them
         _ = vector_store.get_collections("empty-subject")
-        
+
         stats = vector_store.get_stats("empty-subject")
-        
+
         assert stats["chunk_count"] == 0
         assert stats["concept_count"] == 0
 
@@ -665,7 +634,7 @@ class TestStatistics:
         vector_store.add_concepts("physics", physics_concepts)
 
         stats = vector_store.get_global_stats(["math", "physics"])
-        
+
         assert stats["chunk_count"] == 5  # 3 + 2
         assert stats["concept_count"] == 4  # 2 + 2
 
@@ -696,7 +665,7 @@ class TestBatchOperations:
         ]
 
         vector_store.batch_add_chunks("batch-subject", chunks, batch_size=100)
-        
+
         stats = vector_store.get_stats("batch-subject")
         assert stats["chunk_count"] == 250
 
@@ -714,7 +683,7 @@ class TestBatchOperations:
         ]
 
         vector_store.batch_add_concepts("batch-subject", concepts, batch_size=50)
-        
+
         stats = vector_store.get_stats("batch-subject")
         assert stats["concept_count"] == 150
 
@@ -730,12 +699,12 @@ class TestDocumentOperations:
     def test_delete_document_chunks(self, vector_store, math_chunks):
         """Test deleting all chunks for a specific document."""
         vector_store.add_chunks("math", math_chunks)
-        
+
         # All chunks have same document_id
         count = vector_store.delete_document_chunks("math", "math-doc-1")
-        
+
         assert count == 3
-        
+
         # Verify chunks are deleted
         stats = vector_store.get_stats("math")
         assert stats["chunk_count"] == 0
@@ -763,10 +732,10 @@ class TestDocumentOperations:
 
         vector_store.add_chunks("multi-doc", chunks_doc1)
         vector_store.add_chunks("multi-doc", chunks_doc2)
-        
+
         # Delete only doc-1 chunks
         vector_store.delete_document_chunks("multi-doc", "doc-1")
-        
+
         # doc-2 chunk should still exist
         result = vector_store.get_chunk("multi-doc", "doc2-chunk-1")
         assert result["id"] == "doc2-chunk-1"
@@ -774,7 +743,7 @@ class TestDocumentOperations:
     def test_delete_nonexistent_document_returns_zero(self, vector_store, math_chunks):
         """Test deleting non-existent document returns zero count."""
         vector_store.add_chunks("math", math_chunks)
-        
+
         count = vector_store.delete_document_chunks("math", "nonexistent-doc")
         assert count == 0
 
@@ -799,16 +768,16 @@ class TestEdgeCases:
                 metadata=ChunkMetadata(token_count=3, start_char=0, end_char=27),
             ),
         ]
-        
+
         vector_store.add_chunks("subject-with-hyphens", chunks)
-        
+
         result = vector_store.get_chunk("subject-with-hyphens", "special-chunk-1")
         assert result["id"] == "special-chunk-1"
 
     def test_upsert_updates_existing_chunk(self, vector_store, math_chunks):
         """Test upserting chunk with same ID updates content."""
         vector_store.add_chunks("math", math_chunks)
-        
+
         updated_chunk = Chunk(
             id="math-chunk-1",
             content="Updated calculus content.",
@@ -816,12 +785,12 @@ class TestEdgeCases:
             chunk_index=0,
             metadata=ChunkMetadata(token_count=3, start_char=0, end_char=25),
         )
-        
+
         vector_store.add_chunks("math", [updated_chunk])
-        
+
         result = vector_store.get_chunk("math", "math-chunk-1")
         assert "Updated" in result["document"]
-        
+
         # Count should remain the same
         stats = vector_store.get_stats("math")
         assert stats["chunk_count"] == 3
@@ -831,14 +800,14 @@ class TestEdgeCases:
         # Add data to multiple subjects
         vector_store.add_chunks("math", math_chunks)
         vector_store.add_chunks("physics", physics_chunks)
-        
+
         # Access collections for both subjects
         math_coll = vector_store.get_chunks_collection("math")
         physics_coll = vector_store.get_chunks_collection("physics")
-        
+
         # Collections should be different objects
         assert math_coll.name != physics_coll.name
-        
+
         # Data should be isolated
         assert math_coll.count() == 3
         assert physics_coll.count() == 2

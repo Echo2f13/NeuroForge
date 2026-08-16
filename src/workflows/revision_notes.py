@@ -14,14 +14,14 @@ from __future__ import annotations
 import logging
 from typing import Optional, Union
 
-from models.output import RevisionNote, SubtopicNote
+from models.output import RevisionNote
 from src.llm import LLMClient, LLMProvider
-from src.retrieval import Retriever
-from src.retrieval.subject_retriever import SubjectRetriever
 from src.prompts.enhanced import (
     REVISION_NOTES_SYSTEM_PROMPT,
     REVISION_NOTES_USER_PROMPT_TEMPLATE,
 )
+from src.retrieval import Retriever
+from src.retrieval.subject_retriever import SubjectRetriever
 
 logger = logging.getLogger("neuroforge.workflows.revision_notes")
 
@@ -93,9 +93,7 @@ class RevisionNotesWorkflow:
 
         # Step 2: Generate structured notes via LLM
         revision_note = self._generate_notes(topic, context)
-        logger.info(
-            f"Generated notes with {len(revision_note.subtopics)} subtopics"
-        )
+        logger.info(f"Generated notes with {len(revision_note.subtopics)} subtopics")
 
         return revision_note, chunk_ids
 
@@ -110,15 +108,11 @@ class RevisionNotesWorkflow:
         Returns:
             Tuple of (concatenated text from retrieved chunks, list of chunk IDs).
         """
-        results = self.retriever.hybrid_retrieval(
-            query=topic, top_k=self.top_k
-        )
+        results = self.retriever.hybrid_retrieval(query=topic, top_k=self.top_k)
 
         if not results:
             # Fall back to semantic search if hybrid returns nothing
-            results = self.retriever.semantic_search(
-                query=topic, top_k=self.top_k
-            )
+            results = self.retriever.semantic_search(query=topic, top_k=self.top_k)
 
         # Format chunks into context string and collect IDs
         context_parts: list[str] = []
@@ -147,9 +141,7 @@ class RevisionNotesWorkflow:
             Validated RevisionNote instance.
         """
         # Build the enhanced user prompt
-        user_prompt = REVISION_NOTES_USER_PROMPT_TEMPLATE.format(
-            topic=topic, context=context
-        )
+        user_prompt = REVISION_NOTES_USER_PROMPT_TEMPLATE.format(topic=topic, context=context)
 
         revision_note, usage = self.llm_client.generate_json(
             prompt=user_prompt,

@@ -17,10 +17,13 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from models.output import MindMap, MindMapNode
 from src.store.knowledge_graph import KnowledgeGraph
+
+if TYPE_CHECKING:
+    import networkx as nx
 
 logger = logging.getLogger("neuroforge.workflows.mind_map")
 
@@ -38,7 +41,7 @@ class MindMapWorkflow:
     """
 
     def __init__(
-        self, 
+        self,
         knowledge_graph: KnowledgeGraph,
         subject_id: Optional[str] = None,
     ) -> None:
@@ -84,14 +87,10 @@ class MindMapWorkflow:
         edges = self._build_edges(nodes, subgraph)
 
         mind_map = MindMap(nodes=nodes, edges=edges)
-        logger.info(
-            f"Mind map generated: {len(nodes)} nodes, {len(edges)} edges"
-        )
+        logger.info(f"Mind map generated: {len(nodes)} nodes, {len(edges)} edges")
         return mind_map
 
-    def visualize(
-        self, mind_map: MindMap, output_path: Optional[str] = None
-    ) -> None:
+    def visualize(self, mind_map: MindMap, output_path: Optional[str] = None) -> None:
         """Visualize a mind map using matplotlib.
 
         Draws the mind map as a tree layout with colored nodes by type.
@@ -102,9 +101,10 @@ class MindMapWorkflow:
             mind_map: The MindMap to visualize.
             output_path: Optional path to save the image.
         """
+        from pathlib import Path
+
         import matplotlib.pyplot as plt
         import networkx as nx
-        from pathlib import Path
 
         if not mind_map.nodes:
             logger.warning("Empty mind map — nothing to visualize.")
@@ -115,20 +115,17 @@ class MindMapWorkflow:
         for node in mind_map.nodes:
             G.add_node(node.id, label=node.label, type=node.type)
         for edge in mind_map.edges:
-            G.add_edge(
-                edge["source"], edge["target"], label=edge.get("label", "")
-            )
+            G.add_edge(edge["source"], edge["target"], label=edge.get("label", ""))
 
         # Color by node type
         color_map = {
-            "topic": "#2196F3",       # Blue
-            "subtopic": "#4CAF50",    # Green
-            "concept": "#FFC107",     # Amber
-            "example": "#9C27B0",     # Purple
+            "topic": "#2196F3",  # Blue
+            "subtopic": "#4CAF50",  # Green
+            "concept": "#FFC107",  # Amber
+            "example": "#9C27B0",  # Purple
         }
         node_colors = [
-            color_map.get(G.nodes[n].get("type", "concept"), "#9E9E9E")
-            for n in G.nodes()
+            color_map.get(G.nodes[n].get("type", "concept"), "#9E9E9E") for n in G.nodes()
         ]
 
         labels = {n: G.nodes[n].get("label", n) for n in G.nodes()}
@@ -157,9 +154,7 @@ class MindMapWorkflow:
 
         # Edge labels
         edge_labels = nx.get_edge_attributes(G, "label")
-        nx.draw_networkx_edge_labels(
-            G, pos=pos, edge_labels=edge_labels, font_size=6, ax=ax
-        )
+        nx.draw_networkx_edge_labels(G, pos=pos, edge_labels=edge_labels, font_size=6, ax=ax)
 
         ax.set_title(f"Mind Map", fontsize=14)
         plt.tight_layout()
@@ -211,9 +206,7 @@ class MindMapWorkflow:
 
         return self.knowledge_graph.graph.subgraph(matching_nodes).copy()
 
-    def _build_nodes(
-        self, topic: str, subgraph: "nx.DiGraph", max_depth: int
-    ) -> list[MindMapNode]:
+    def _build_nodes(self, topic: str, subgraph: "nx.DiGraph", max_depth: int) -> list[MindMapNode]:
         """Stage 2: Build MindMapNode tree via BFS with depth control.
 
         Creates a root node for the topic, then adds child nodes
@@ -299,9 +292,7 @@ class MindMapWorkflow:
 
         return nodes
 
-    def _build_edges(
-        self, nodes: list[MindMapNode], subgraph: "nx.DiGraph"
-    ) -> list[dict]:
+    def _build_edges(self, nodes: list[MindMapNode], subgraph: "nx.DiGraph") -> list[dict]:
         """Stage 3: Generate edges between connected nodes.
 
         Creates edges from:
@@ -323,9 +314,7 @@ class MindMapWorkflow:
                 )
 
         # Add graph relationship edges (between non-root nodes)
-        seen_edges: set[tuple[str, str]] = {
-            (e["source"], e["target"]) for e in edges
-        }
+        seen_edges: set[tuple[str, str]] = {(e["source"], e["target"]) for e in edges}
 
         for u, v, data in subgraph.edges(data=True):
             if u in node_ids and v in node_ids:

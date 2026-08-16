@@ -13,7 +13,6 @@ import pytest
 from models import Chunk, ChunkMetadata, Concept, Difficulty
 from src.store.vector_store import VectorStore
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

@@ -27,9 +27,7 @@ class Retriever:
         knowledge_graph: Initialized KnowledgeGraph with concept relationships.
     """
 
-    def __init__(
-        self, vector_store: VectorStore, knowledge_graph: KnowledgeGraph
-    ) -> None:
+    def __init__(self, vector_store: VectorStore, knowledge_graph: KnowledgeGraph) -> None:
         """Initialize the Retriever.
 
         Args:
@@ -249,9 +247,7 @@ class Retriever:
                 merged[rid] = result_copy
             else:
                 # Boost score if found by both methods
-                merged[rid]["score"] = min(
-                    1.0, merged[rid]["score"] + adjusted_score * 0.2
-                )
+                merged[rid]["score"] = min(1.0, merged[rid]["score"] + adjusted_score * 0.2)
 
         # Step 5: Sort by score descending, take top_k
         sorted_results = sorted(merged.values(), key=lambda x: x["score"], reverse=True)
@@ -295,9 +291,7 @@ class Retriever:
 
         return formatted
 
-    def _fetch_chunks_by_ids(
-        self, chunk_ids: list[str], scores: dict[str, float]
-    ) -> list[dict]:
+    def _fetch_chunks_by_ids(self, chunk_ids: list[str], scores: dict[str, float]) -> list[dict]:
         """Fetch chunks from the vector store by their IDs.
 
         Args:

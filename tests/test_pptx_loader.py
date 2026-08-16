@@ -1,6 +1,5 @@
 """Tests for the PPTX loader module."""
 
-import os
 import sys
 from pathlib import Path
 

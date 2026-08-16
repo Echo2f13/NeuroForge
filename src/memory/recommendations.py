@@ -60,33 +60,39 @@ class RecommendationEngine:
         weak_topics = self.progress_tracker.get_weak_topics()
         for topic in weak_topics:
             progress = self.progress_tracker.get_topic_progress(topic)
-            recommendations.append({
-                "action": "practice",
-                "topic": topic,
-                "reason": f"Weak topic with average score {progress.average_score:.0f}%",
-                "priority": 5,
-            })
+            recommendations.append(
+                {
+                    "action": "practice",
+                    "topic": topic,
+                    "reason": f"Weak topic with average score {progress.average_score:.0f}%",
+                    "priority": 5,
+                }
+            )
 
         # Medium priority: due flashcards (priority 3)
         if self.scheduler:
             due_cards = self.scheduler.get_due_cards()
             for card_id in due_cards:
-                recommendations.append({
-                    "action": "review",
-                    "topic": card_id,
-                    "reason": "Flashcard due for spaced repetition review",
-                    "priority": 3,
-                })
+                recommendations.append(
+                    {
+                        "action": "review",
+                        "topic": card_id,
+                        "reason": "Flashcard due for spaced repetition review",
+                        "priority": 3,
+                    }
+                )
 
         # Medium-low priority: next topics (priority 2)
         next_topics = self.suggest_next_topics()
         for topic in next_topics:
-            recommendations.append({
-                "action": "learn",
-                "topic": topic,
-                "reason": "All prerequisites mastered — ready to learn",
-                "priority": 2,
-            })
+            recommendations.append(
+                {
+                    "action": "learn",
+                    "topic": topic,
+                    "reason": "All prerequisites mastered — ready to learn",
+                    "priority": 2,
+                }
+            )
 
         # Sort by priority descending
         recommendations.sort(key=lambda r: r["priority"], reverse=True)
@@ -211,11 +217,7 @@ class RecommendationEngine:
         # - 2 minutes per flashcard review
         # - 15 minutes per weak topic practice
         # - 20 minutes per new topic
-        estimated_time = (
-            len(review_cards) * 2
-            + len(weak_topics) * 15
-            + len(next_topics) * 20
-        )
+        estimated_time = len(review_cards) * 2 + len(weak_topics) * 15 + len(next_topics) * 20
 
         return {
             "review_cards": review_cards,

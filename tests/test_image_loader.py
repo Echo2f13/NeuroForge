@@ -6,19 +6,17 @@ PaddleOCR/Tesseract fallback logic, and document construction.
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from models import Document, InputFormat
 from src.ingestion.image_loader import (
+    SUPPORTED_EXTENSIONS,
     ImageLoader,
     OCREngineError,
-    SUPPORTED_EXTENSIONS,
     UnsupportedImageFormatError,
 )
-
 
 # ---------------------------------------------------------------------------
 # File Validation Tests
